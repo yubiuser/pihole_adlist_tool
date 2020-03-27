@@ -215,6 +215,9 @@ sqlite3 -column -header $TEMP_DB "SELECT id, enabled, total_domains, domains_cov
 
 echo
 echo "Domains from disabled adlists are not stored in gravity's database. If you want to include them, enable them and run 'pihole -g'"
+echo "As the same domains usually appears on more than one adlist the sum of covered domains from this table is greater "
+echo "than the number of calculated blocked domains shown above"
+echo
 echo "In total your adlists contain "$NUM_TOTAL_UNIQUE_DOMAINS" visited (covered) unique domains - meaning those domains are contained only in a single adlist. "
 echo
 echo
