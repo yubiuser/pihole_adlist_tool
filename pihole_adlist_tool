@@ -1,0 +1,237 @@
+#!/bin/bash
+
+# define path to pihole's databases and temporary database
+TEMP_DB="/tmp/temp.db"
+PIHOLE_FTL="file:/etc/pihole/pihole-FTL.db?mode=ro"
+GRAVITY="file:/etc/pihole/gravity.db?mode=ro"
+
+#define and initialize variables
+DAYS=90
+TIME_RANGE=
+TOP=0
+SORT=
+NUM_DOMAINS_BLOCKED=
+HITS_TOTAL=
+SORT_ORDER=
+DATE_FIRST_QUERY=
+NUM_ADLISTS=
+NUM_ADLISTS_ENABLED=
+NUM_GRAVITY_UNIQUE_DOMAINS=
+NUM_DOMAINS_BLOCKED_CURRENT=
+HITS_TOTAL_CURRENT=
+BLACKLIST_GRAVITY=
+UNIQUE=
+NUM_TOTAL_UNIQUE_DOMAINS=
+
+
+# help message
+print_help() {
+  echo "Usage: pihole_adlist_tool [options]
+    
+    Options:
+    -d [Num]                         Consider the last [Num] days (Default: 90). Enter 0 for all-time analysis.
+    -t [Num]                         Show top blocked domains. [Num] defines the number to show.
+    -s [total/covered/hits/unique]   Set sorting order to total (total domains), covered (domains covered), hits (hits covered) or unique (covered unique domains) DESC. (Default sorting: id ASC)
+    -u                               Show covered unique domains
+    -h                               Show this help dialog
+"
+}
+
+# getopts flags and assing arguments to variables
+
+while getopts 'd:t:s:uh' flag; do
+  case "${flag}" in
+    d) DAYS="${OPTARG}" ;;
+    t) TOP="${OPTARG}" ;;
+    s) SORT="${OPTARG}" ;;
+    u) UNIQUE=1;;
+    h) print_help
+        exit 0 ;;
+    *) print_help
+        exit 1 ;;
+  esac
+done
+
+
+# dirty hack to allow to analyze all time queries (pihole_adlist_tool -d 0) 
+# if -d n is a number, constrain the queries to the last n days
+
+case "$DAYS" in
+    ''|*[1-9]*)     TIME_RANGE=" timestamp>=(strftime('%s','now') - 86400*${DAYS})" ;;
+    0)              TIME_RANGE=" timestamp<(strftime('%s','now'))" ;;
+    *) print_help
+        exit 1 ;;
+esac
+
+
+case "$SORT" in
+    total)      SORT_ORDER="total_domains DESC" ;;
+    domains)    SORT_ORDER="domains_covered DESC" ;;
+    hits)       SORT_ORDER="hits_covered DESC" ;;
+    unique)     SORT_ORDER="unique_domains_covered DESC" ;;
+    *)          SORT_ORDER="id ASC" ;;
+esac
+
+case "$TOP" in
+    ''|*[0-9]*)     ;;
+    *) print_help
+        exit 1 ;;
+esac
+
+
+
+echo
+echo "*** Pihole Adlist Tool ***"
+echo
+echo "Calculating....."
+echo
+echo "This might take some time - please be patient."
+# Database manipulation
+# To analyze the data this tool creates a temporary database using data provided by pihole-ftl.db and gravity.db
+# timeout is set to 5000 ms in which sqlite tries to open an locked database
+#
+#
+# table blocked_domains selects all domains from pihole-ftl.db that that are also found in gravity.db. Depending on -d n this is limited to the last n days (gets all domains that would have been blocked)
+# table adlist copies id, enable, address from gravity.adlist
+# table adlist adlist is updated with total number of domains for each id (adlist)
+# 
+# table gravity_strip selects all domains and adlist_ids from gravitiy.db for which it finds corresponding domains in blocked_domains table (strips gravity to domains which could have been blocked)
+# table blacklist_gravity contains all domains that are on the blacklist and also found in an adlist (aka gravity_strip)
+
+# table unique_domains contains all domains from gravity_strip that are found just on one adlist (covered unique domains)
+# table adlist is updated with the sum of domains for each id it finds a corresponding id in gravity_strip (counts how many domains this adlist whould have covered if used alone)
+# table adlist is updated with the sum of hits for all domains for each id when it finds a corresponding id in gravity_strip (counts how many hits this adlist whould have covered if used alone)
+# table adlist is updated with the number of unique_domains for each adlist id (number of unique domains covered by each adlist)
+# table blacklist_gravity is updated with the number of hits for each domain found in blocked_domains
+
+sqlite3 -cmd ".timeout 5000" $TEMP_DB << EOF
+    create table blocked_domains (domain TEXT,hits INTEGER);
+    create table adlist (id INTEGER, enabled INTEGER, address TEXT, total_domains INTEGER, domains_covered INTEGER, hits_covered INTEGER, unique_domains_covered INTEGER);
+    create table gravity_strip (domain TEXT,adlist_id INTEGER);
+    create table blacklist_gravity(domain TEXT, hits INTEGER);
+    create table unique_domains(domain TEXT, adlist_id INTEGER);
+    
+    ATTACH DATABASE "${PIHOLE_FTL}" AS pihole_ftl_db;
+    ATTACH DATABASE "${GRAVITY}" AS gravity_db;
+
+    INSERT INTO blocked_domains(domain,hits) SELECT domain, COUNT(domain) FROM pihole_ftl_db.queries WHERE domain IN (select distinct domain from gravity_db.gravity) AND ${TIME_RANGE} GROUP BY domain ORDER BY COUNT(domain) DESC;
+    DETACH DATABASE pihole_ftl_db;
+
+    INSERT INTO adlist (id, enabled, address) SELECT id, enabled, address FROM gravity_db.adlist ORDER BY adlist.id; 
+    UPDATE adlist SET total_domains=(SELECT count(domain) FROM gravity_db.gravity WHERE adlist_id==id GROUP BY adlist_id);
+    
+    INSERT INTO gravity_strip(domain,adlist_id) SELECT gravity_db.gravity.domain, gravity_db.gravity.adlist_id FROM gravity JOIN blocked_domains ON blocked_domains.domain = gravity.domain;
+    INSERT INTO blacklist_gravity(domain) SELECT gravity_strip.domain FROM gravity_strip JOIN gravity_db.domainlist on gravity_strip.domain=gravity_db.domainlist.domain WHERE type==1 GROUP BY gravity_strip.domain;
+
+    DETACH DATABASE gravity_db;
+    
+    
+    INSERT INTO unique_domains(domain, adlist_id) SELECT domain, adlist_id FROM gravity_strip GROUP BY domain HAVING COUNT(domain)==1 order by adlist_id asc;
+    UPDATE adlist SET domains_covered=(select count(domain) FROM gravity_strip WHERE id== adlist_id GROUP BY adlist_id);
+    UPDATE adlist SET hits_covered=(SELECT SUM(blocked_domains.hits) FROM gravity_strip JOIN blocked_domains ON gravity_strip.domain == blocked_domains.domain WHERE id== adlist_id Group by adlist_id);
+    UPDATE adlist SET unique_domains_covered=(SELECT COUNT(domain) FROM unique_domains WHERE adlist_id==id GROUP BY adlist_id);
+    UPDATE blacklist_gravity SET hits=(SELECT blocked_domains.hits FROM blocked_domains WHERE blocked_domains.domain=blacklist_gravity.domain);
+.exit
+EOF
+
+# get some statistics
+NUM_DOMAINS_BLOCKED=$(sqlite3 $PIHOLE_FTL "SELECT COUNT(DISTINCT domain) FROM queries WHERE ${TIME_RANGE} AND status == 1;")
+HITS_TOTAL=$(sqlite3 $PIHOLE_FTL "SELECT Count(domain) FROM queries WHERE ${TIME_RANGE} AND status == 1;")
+DATE_FIRST_QUERY=$(date -d @$(sqlite3 $PIHOLE_FTL "SELECT MIN(timestamp) FROM queries;"))
+NUM_ADLISTS=$(sqlite3 $TEMP_DB "SELECT COUNT(id) FROM adlist;")
+NUM_ADLISTS_ENABLED=$(sqlite3 $TEMP_DB "SELECT COUNT(id) FROM adlist WHERE enabled==1;")
+NUM_GRAVITY_UNIQUE_DOMAINS=$(sqlite3 $GRAVITY "SELECT COUNT(DISTINCT domain) FROM gravity;")
+NUM_DOMAINS_BLOCKED_CURRENT=$(sqlite3 $TEMP_DB "SELECT COUNT(domain) FROM blocked_domains;")
+HITS_TOTAL_CURRENT=$(sqlite3 $TEMP_DB "SELECT SUM(hits) FROM blocked_domains;")
+BLACKLIST_GRAVITY=$(sqlite3 $TEMP_DB "SELECT COUNT(*) FROM blacklist_gravity;")
+NUM_TOTAL_UNIQUE_DOMAINS=$(sqlite3 $TEMP_DB "SELECT COUNT(*) FROM unique_domains;")
+
+
+echo
+echo "You have "$NUM_ADLISTS" adlists configured ("$NUM_ADLISTS_ENABLED" enabled). Your gravity.db contains "$NUM_GRAVITY_UNIQUE_DOMAINS" unique domains."
+echo
+if [ "$DAYS" = 0 ];
+    then 
+        echo "Since the beging of time ("$DATE_FIRST_QUERY") "$NUM_DOMAINS_BLOCKED" different domains from your adlists have been blocked "$HITS_TOTAL" times in total."
+    else echo "In the last "$DAYS" Days "$NUM_DOMAINS_BLOCKED" different domains from your adlists have been blocked "$HITS_TOTAL" times in total."
+fi
+
+echo
+echo "Using you current adlist configuration "$NUM_DOMAINS_BLOCKED_CURRENT" domains would have been blocked "$HITS_TOTAL_CURRENT" times."
+echo
+echo
+read -p "Press enter to continue..."
+
+if [ "$BLACKLIST_GRAVITY" -ne 0 ]; then
+    echo
+    echo
+    echo "**You hit a spececial case***" 
+    echo "Your personal blacklist contains at least one domain that is also on an adlist and has been requested in the selected time period."
+    echo "If pihole blocked it (because blacklist was enabled at the time of the request) it got a special status ('blocked by blacklist' instead of 'blocked by gravity')"
+    echo "and is NOT counted on the above number of blocked domains/hits. As the domain is on an adlist the number of potentially blocked domains/hits is therefore is higher."
+    echo
+    echo
+    sqlite3 -column -header $TEMP_DB "SELECT * FROM blacklist_gravity"
+    echo
+    echo "use 'pihole -q \"domain\"' to see on which adlist(s) it is"
+    echo
+    read -p "Press enter to continue..."
+fi
+
+
+echo
+echo
+# prints n top potentially blocked domains based on -t argument
+if [ "$TOP" = 0 ]; then :
+else
+echo 
+    if [ "$DAYS" = 0 ];
+    then 
+        echo "*** Top blocked adlist domains ***"
+        echo
+        echo
+        echo "Those would  have been the "$TOP" top blocked adlist domains since "$DATE_FIRST_QUERY" using your current adlist configuration"
+    else 
+        echo "*** Top blocked domains ***"      
+        echo
+        echo        
+        echo "Those would have been the "$TOP" top blocked adlist domains in the last "$DAYS" Days using your current adlist configuration" 
+    fi
+echo
+sqlite3 -column -header $TEMP_DB "SELECT domain, hits FROM blocked_domains LIMIT "${TOP}";"
+echo
+read -p "Press enter to continue..."
+fi
+    
+echo
+echo
+
+echo "*** Adlist coverage ***"
+echo
+echo
+
+# prints the adlist table, sorting depends on -s argument
+sqlite3 -column -header $TEMP_DB "SELECT id, enabled, total_domains, domains_covered, hits_covered, unique_domains_covered, address FROM adlist ORDER BY ${SORT_ORDER};"
+
+echo
+echo "Domains from disabled adlists are not stored in gravity's database. If you want to include them, enable them and run 'pihole -g'"
+echo "In total your adlists contain "$NUM_TOTAL_UNIQUE_DOMAINS" visited (covered) unique domains - meaning those domains are contained only in a single adlist. "
+echo
+echo
+
+if [ "$UNIQUE" = 1 ];
+    then 
+        echo
+        echo        
+        read -p "Press enter to continue..."
+        echo
+        echo
+        echo "***Covered unique domains ***"
+        echo
+        sqlite3 -column -header $TEMP_DB "SELECT domain, adlist_id, address FROM unique_domains JOIN adlist WHERE adlist_id=id;"
+        echo
+        echo
+fi
+# removes temporary database
+rm $TEMP_DB
+
