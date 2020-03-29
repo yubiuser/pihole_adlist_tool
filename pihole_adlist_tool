@@ -114,7 +114,7 @@ sqlite3 -cmd ".timeout 5000" $TEMP_DB << EOF
     ATTACH DATABASE "${PIHOLE_FTL}" AS pihole_ftl_db;
     ATTACH DATABASE "${GRAVITY}" AS gravity_db;
 
-    INSERT INTO blocked_domains(domain,hits) SELECT domain, COUNT(domain) FROM pihole_ftl_db.queries WHERE domain IN (select distinct domain from gravity_db.gravity) AND ${TIME_RANGE} GROUP BY domain ORDER BY COUNT(domain) DESC;
+    INSERT INTO blocked_domains(domain,hits) SELECT domain, COUNT(domain) FROM pihole_ftl_db.queries WHERE EXISTS (select 1 from gravity_db.gravity where gravity.domain=queries.domain) AND ${TIME_RANGE} GROUP BY domain ORDER BY COUNT(domain) DESC;
     DETACH DATABASE pihole_ftl_db;
 
     INSERT INTO adlist (id, enabled, address) SELECT id, enabled, address FROM gravity_db.adlist ORDER BY adlist.id; 
