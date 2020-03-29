@@ -140,7 +140,7 @@ HITS_TOTAL=$(sqlite3 $PIHOLE_FTL "SELECT Count(domain) FROM queries WHERE ${TIME
 DATE_FIRST_QUERY=$(date -d @$(sqlite3 $PIHOLE_FTL "SELECT MIN(timestamp) FROM queries;"))
 NUM_ADLISTS=$(sqlite3 $TEMP_DB "SELECT COUNT(id) FROM adlist;")
 NUM_ADLISTS_ENABLED=$(sqlite3 $TEMP_DB "SELECT COUNT(id) FROM adlist WHERE enabled==1;")
-NUM_GRAVITY_UNIQUE_DOMAINS=$(sqlite3 $GRAVITY "SELECT COUNT(DISTINCT domain) FROM gravity;")
+NUM_GRAVITY_UNIQUE_DOMAINS=$(sqlite3 $GRAVITY "SELECT value FROM info WHERE property == 'gravity_count';")
 NUM_DOMAINS_BLOCKED_CURRENT=$(sqlite3 $TEMP_DB "SELECT COUNT(domain) FROM blocked_domains;")
 HITS_TOTAL_CURRENT=$(sqlite3 $TEMP_DB "SELECT SUM(hits) FROM blocked_domains;")
 BLACKLIST_GRAVITY=$(sqlite3 $TEMP_DB "SELECT COUNT(*) FROM blacklist_gravity;")
