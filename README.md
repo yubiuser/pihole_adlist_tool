@@ -65,3 +65,14 @@ As adlist configuration might have changed over time (add/removed adlists, enabl
 
 The deeper reason for re-analyzing the queries is that this tool should help you to make predictions for the future: assuming your online behavior is rather stable over time and you analyze a long enough dataset from the past this tool will tell you which adlist might be worth keeping (because it contains a lot of covered domains) and which you could safely remove (no covered domains and/or covered domains but no unique covered domains).
 
+---
+**Support, Contribute & Todo**
+
+I'm not a developer. This script is mostly done by copy-pasting snippets I found online. I know there is no proper error and exception handling. If you are willing to improve the script feel free to submit pull requests. Things on my todo list:
+
+-  Improve speed of the database handling. The slow steps are
+	- Select all domains from pihole-ftl.db that that are also found in gravity.db
+	- Update adlist with the total number of domains from gravity.db for each adlist
+	- Get the total number of blocked domains from pihole-ftl.db
+	- Get the total number of hits from pihole-ftl.db
+- format sql output with awk
