@@ -72,7 +72,6 @@ I'm not a developer. This script is mostly done by copy-pasting snippets I found
 
 -  Improve speed of the database handling. The slow steps are
 	- Select all domains from pihole-ftl.db that that are also found in gravity.db
-	- Update adlist with the total number of domains from gravity.db for each adlist
 	- Get the total number of blocked domains from pihole-ftl.db
 	- Get the total number of hits from pihole-ftl.db
 - format sql output with awk
