@@ -93,7 +93,6 @@ echo "This might take some time - please be patient."
 #
 # table blocked_domains selects all domains from pihole-ftl.db that that are also found in gravity.db. Depending on -d n this is limited to the last n days (gets all domains that would have been blocked)
 # table adlist copies id, enable, address from gravity.adlist
-# table adlist adlist is updated with total number of domains for each id (adlist)
 # 
 # table gravity_strip selects all domains and adlist_ids from gravitiy.db for which it finds corresponding domains in blocked_domains table (strips gravity to domains which could have been blocked)
 # table blacklist_gravity contains all domains that are on the blacklist and also found in an adlist (aka gravity_strip)
@@ -118,7 +117,6 @@ sqlite3 -cmd ".timeout 5000" $TEMP_DB << EOF
     DETACH DATABASE pihole_ftl_db;
 
     INSERT INTO adlist (id, enabled, address) SELECT id, enabled, address FROM gravity_db.adlist ORDER BY adlist.id; 
-    UPDATE adlist SET total_domains=(SELECT count(domain) FROM gravity_db.gravity WHERE adlist_id==id GROUP BY adlist_id);
     
     INSERT INTO gravity_strip(domain,adlist_id) SELECT gravity_db.gravity.domain, gravity_db.gravity.adlist_id FROM gravity JOIN blocked_domains ON blocked_domains.domain = gravity.domain;
     INSERT INTO blacklist_gravity(domain) SELECT gravity_strip.domain FROM gravity_strip JOIN gravity_db.domainlist on gravity_strip.domain=gravity_db.domainlist.domain WHERE type==1 GROUP BY gravity_strip.domain;
@@ -133,6 +131,12 @@ sqlite3 -cmd ".timeout 5000" $TEMP_DB << EOF
     UPDATE blacklist_gravity SET hits=(SELECT blocked_domains.hits FROM blocked_domains WHERE blocked_domains.domain=blacklist_gravity.domain);
 .exit
 EOF
+
+# table adlist is updated with total number of domains for each id (adlist)
+sqlite3 $GRAVITY "SELECT adlist_id,count(domain) FROM gravity GROUP BY adlist_id;" | while IFS="|" read adlist_id count; do
+    sqlite3 $TEMP_DB "UPDATE adlist SET total_domains="${count}" WHERE id="${adlist_id}";"
+done
+
 
 # get some statistics
 NUM_DOMAINS_BLOCKED=$(sqlite3 $PIHOLE_FTL "SELECT COUNT(DISTINCT domain) FROM queries WHERE ${TIME_RANGE} AND status == 1;")
