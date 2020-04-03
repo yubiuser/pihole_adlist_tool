@@ -40,7 +40,7 @@ Depending on the number of enabled adlists and the number of visited domains in 
 **Requirements:**
 
 - Pihole v5.0
-- checkout a special branch (`pihole checkout ftl tweak/sqlite_debugging`) to prevent mutual database locking between the script and pihole FTL
+
 
 ** Usage **
 
