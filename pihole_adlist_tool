@@ -114,14 +114,14 @@ sqlite3 -cmd ".timeout 5000" $TEMP_DB << EOF
     ATTACH DATABASE "${GRAVITY}" AS gravity_db;
 
     INSERT INTO blocked_domains(domain,hits) SELECT domain, COUNT(domain) FROM pihole_ftl_db.queries WHERE EXISTS (select 1 from gravity_db.gravity where gravity.domain=queries.domain) AND ${TIME_RANGE} GROUP BY domain ORDER BY COUNT(domain) DESC;
-    DETACH DATABASE pihole_ftl_db;
+    
 
     INSERT INTO adlist (id, enabled, address) SELECT id, enabled, address FROM gravity_db.adlist ORDER BY adlist.id; 
     
     INSERT INTO gravity_strip(domain,adlist_id) SELECT gravity_db.gravity.domain, gravity_db.gravity.adlist_id FROM gravity JOIN blocked_domains ON blocked_domains.domain = gravity.domain;
     INSERT INTO blacklist_gravity(domain) SELECT gravity_strip.domain FROM gravity_strip JOIN gravity_db.domainlist on gravity_strip.domain=gravity_db.domainlist.domain WHERE type==1 GROUP BY gravity_strip.domain;
 
-    DETACH DATABASE gravity_db;
+    
     
     
     INSERT INTO unique_domains(domain, adlist_id) SELECT domain, adlist_id FROM gravity_strip GROUP BY domain HAVING COUNT(domain)==1 order by adlist_id asc;
@@ -129,6 +129,9 @@ sqlite3 -cmd ".timeout 5000" $TEMP_DB << EOF
     UPDATE adlist SET hits_covered=(SELECT SUM(blocked_domains.hits) FROM gravity_strip JOIN blocked_domains ON gravity_strip.domain == blocked_domains.domain WHERE id== adlist_id Group by adlist_id);
     UPDATE adlist SET unique_domains_covered=(SELECT COUNT(domain) FROM unique_domains WHERE adlist_id==id GROUP BY adlist_id);
     UPDATE blacklist_gravity SET hits=(SELECT blocked_domains.hits FROM blocked_domains WHERE blocked_domains.domain=blacklist_gravity.domain);
+
+    DETACH DATABASE gravity_db;
+    DETACH DATABASE pihole_ftl_db;
 .exit
 EOF
 
