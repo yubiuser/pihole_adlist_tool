@@ -7,7 +7,8 @@ GRAVITY="file:/etc/pihole/gravity.db?mode=ro"
 
 #define and initialize variables
 DAYS=90
-TIME_RANGE=
+declare -i FTL_ID
+FTL_ID=0
 TOP=0
 SORT=
 NUM_DOMAINS_BLOCKED=
@@ -52,13 +53,28 @@ while getopts 'd:t:s:uh' flag; do
   esac
 done
 
+# function to get the id of the query timestamp for the selected timeframe (DAYS)
+# calculates the timestamp first, iterates through the timestamp_index in pihole-ftl.db until it finds an corresponding id
+# iteration is necessary because not for all timestamps exists queries, so it takes the next bigger one
+# it is faster to externally iterate than to use 'timestamp>=' as 'timestamp=' uses the index and is very fast
+# using id as it is as INTEGER PRIMARY KEY an alias for ROWIDs
 
-# dirty hack to allow to analyze all time queries (pihole_adlist_tool -d 0) 
-# if -d n is a number, constrain the queries to the last n days
+get_ftl_id () {
+    declare -i TIMESTAMP
+    TIMESTAMP=$(date +%s)
+    TIMESTAMP=$TIMESTAMP-86400*${DAYS}
 
+    while [ $FTL_ID = 0 ]; do
+        FTL_ID=$(sqlite3 $PIHOLE_FTL "SELECT MIN(id) FROM queries WHERE timestamp=$TIMESTAMP;")
+        TIMESTAMP=$TIMESTAMP+1
+    done
+}
+
+
+# get FTL_ID based on DAYS
 case "$DAYS" in
-    ''|*[1-9]*)     TIME_RANGE=" timestamp>=(strftime('%s','now') - 86400*${DAYS})" ;;
-    0)              TIME_RANGE=" timestamp<(strftime('%s','now'))" ;;
+    ''|*[1-9]*)     get_ftl_id ;;
+    0)              FTL_ID=1 ;;
     *) print_help
         exit 1 ;;
 esac
@@ -113,7 +129,7 @@ sqlite3 -cmd ".timeout 5000" $TEMP_DB << EOF
     ATTACH DATABASE "${PIHOLE_FTL}" AS pihole_ftl_db;
     ATTACH DATABASE "${GRAVITY}" AS gravity_db;
 
-    INSERT INTO blocked_domains(domain,hits) SELECT domain, COUNT(domain) FROM pihole_ftl_db.queries WHERE EXISTS (select 1 from gravity_db.gravity where gravity.domain=queries.domain) AND ${TIME_RANGE} GROUP BY domain ORDER BY COUNT(domain) DESC;
+    INSERT INTO blocked_domains(domain, hits) SELECT domain, COUNT(domain) FROM pihole_ftl_db.queries WHERE EXISTS (select 1 from gravity_db.gravity where gravity.domain=queries.domain) AND id>=${FTL_ID} GROUP BY domain ORDER BY COUNT(domain) DESC;
     
 
     INSERT INTO adlist (id, enabled, address) SELECT id, enabled, address FROM gravity_db.adlist ORDER BY adlist.id; 
@@ -143,8 +159,8 @@ done
 
 
 # get some statistics
-NUM_DOMAINS_BLOCKED=$(sqlite3 $PIHOLE_FTL "SELECT COUNT(DISTINCT domain) FROM queries WHERE ${TIME_RANGE} AND status == 1;")
-HITS_TOTAL=$(sqlite3 $PIHOLE_FTL "SELECT Count(domain) FROM queries WHERE ${TIME_RANGE} AND status == 1;")
+NUM_DOMAINS_BLOCKED=$(sqlite3 $PIHOLE_FTL "SELECT COUNT(DISTINCT domain) FROM queries WHERE id>=${FTL_ID} AND status == 1;")
+HITS_TOTAL=$(sqlite3 $PIHOLE_FTL "SELECT Count(domain) FROM queries WHERE id>=${FTL_ID} AND status == 1;")
 DATE_FIRST_QUERY=$(date -d @$(sqlite3 $PIHOLE_FTL "SELECT MIN(timestamp) FROM queries;"))
 NUM_ADLISTS=$(sqlite3 $TEMP_DB "SELECT COUNT(id) FROM adlist;")
 NUM_ADLISTS_ENABLED=$(sqlite3 $TEMP_DB "SELECT COUNT(id) FROM adlist WHERE enabled==1;")
