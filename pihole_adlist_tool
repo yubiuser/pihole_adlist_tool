@@ -159,8 +159,8 @@ done
 
 
 # get some statistics
-NUM_DOMAINS_BLOCKED=$(sqlite3 $PIHOLE_FTL "SELECT COUNT(DISTINCT domain) FROM queries WHERE id>=${FTL_ID} AND status == 1;")
-HITS_TOTAL=$(sqlite3 $PIHOLE_FTL "SELECT Count(domain) FROM queries WHERE id>=${FTL_ID} AND status == 1;")
+read NUM_DOMAINS_BLOCKED HITS_TOTAL <<<$(sqlite3 -separator " " $PIHOLE_FTL "SELECT COUNT(DISTINCT domain),count (domain) FROM queries WHERE id>=${FTL_ID} AND status == 1;")
+
 DATE_FIRST_QUERY=$(date -d @$(sqlite3 $PIHOLE_FTL "SELECT MIN(timestamp) FROM queries;"))
 NUM_ADLISTS=$(sqlite3 $TEMP_DB "SELECT COUNT(id) FROM adlist;")
 NUM_ADLISTS_ENABLED=$(sqlite3 $TEMP_DB "SELECT COUNT(id) FROM adlist WHERE enabled==1;")
