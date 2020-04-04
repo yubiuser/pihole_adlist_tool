@@ -133,6 +133,7 @@ sqlite3 -cmd ".timeout 5000" $TEMP_DB << EOF
 EOF
 
 # table adlist is updated with total number of domains for each id (adlist)
+# doing this outside of the heredoc becaus external loop is faster than nestest UPDATE through whole table scan
 sqlite3 $GRAVITY "SELECT adlist_id,count(domain) FROM gravity GROUP BY adlist_id;" | while IFS="|" read adlist_id count; do
     sqlite3 $TEMP_DB "UPDATE adlist SET total_domains="${count}" WHERE id="${adlist_id}";"
 done
