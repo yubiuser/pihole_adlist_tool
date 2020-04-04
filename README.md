@@ -19,9 +19,6 @@ This script tries to provide you with a bunch of information that enables you to
 
 As domains usually appear on more then one adlist I introduce the concept of ***unique covered domains***. Those are domains that have been visited, would have been blocked and appear on just one adlist. This might help you to value your adlists not just by how many domains are covered but also what would happen if you disable this adlist.
 
-Sample output of adlist table
-![adlist table](adlist_table.png  "adlist table")
-
 ---
 **Limits**
 
