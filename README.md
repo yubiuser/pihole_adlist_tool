@@ -19,6 +19,9 @@ This script tries to provide you with a bunch of information that enables you to
 
 As domains usually appear on more then one adlist I introduce the concept of ***unique covered domains***. Those are domains that have been visited, would have been blocked and appear on just one adlist. This might help you to value your adlists not just by how many domains are covered but also what would happen if you disable this adlist.
 
+Sample output of adlist table
+![adlist table](adlist_table.png  "adlist table")
+
 ---
 **Limits**
 
@@ -36,6 +39,8 @@ As domains usually appear on more then one adlist I introduce the concept of ***
 **Cave**
 
 Depending on the number of enabled adlists and the number of visited domains in the selected time period the calculation might take some time - please be patient.
+
+On my [NanoPi NeoPlus2](http://wiki.friendlyarm.com/wiki/index.php/NanoPi_NEO_Plus2)  (ARM, Quad-core Cortex A53)  it takes ~17-18sec to analyse 2.3 million queries from pihole-ftl.db and 347603 domains in gravity.db
 
 ---
 **Requirements**
@@ -70,8 +75,9 @@ The deeper reason for re-analyzing the queries is that this tool should help you
 
 I'm not a developer. This script is mostly done by copy-pasting snippets I found online. I know there is no proper error and exception handling. If you are willing to improve the script feel free to submit pull requests. Things on my todo list:
 
--  Improve speed of the database handling. The slow steps are
+-  Further improve speed of the database handling. The slow steps are
 	- Select all domains from pihole-ftl.db that that are also found in gravity.db
 	- Get the total number of blocked domains from pihole-ftl.db
 	- Get the total number of hits from pihole-ftl.db
+	- Update adlist with the total number of domains from gravity.db for each adlist
 - format sql output with awk
