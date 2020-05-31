@@ -6,7 +6,14 @@ PIHOLE_FTL="file:/etc/pihole/pihole-FTL.db?mode=ro"
 GRAVITY="file:/etc/pihole/gravity.db?mode=ro"
 
 #define and initialize variables
-DAYS=90
+declare -i DAYS_REQUESTED
+DAYS_REQUESTED=90
+declare -i TIMESTAMP_REQUESTED
+DATE_REQUESTED=
+DATE_FIRST_QUERY=
+declare -i TIMESTAMP_FIRST_QUERY
+declare -i TIMESTAMP_FIRST_ANALYZED
+DATE_FIRST_ANALYZED=
 declare -i FTL_ID
 FTL_ID=0
 TOP=0
@@ -14,7 +21,6 @@ SORT=
 NUM_DOMAINS_BLOCKED=
 HITS_TOTAL=
 SORT_ORDER=
-DATE_FIRST_QUERY=
 NUM_ADLISTS=
 NUM_ADLISTS_ENABLED=
 NUM_GRAVITY_UNIQUE_DOMAINS=
@@ -42,7 +48,7 @@ print_help() {
 
 while getopts 'd:t:s:uh' flag; do
   case "${flag}" in
-    d) DAYS="${OPTARG}" ;;
+    d) DAYS_REQUESTED="${OPTARG}" ;;
     t) TOP="${OPTARG}" ;;
     s) SORT="${OPTARG}" ;;
     u) UNIQUE=1;;
@@ -53,28 +59,45 @@ while getopts 'd:t:s:uh' flag; do
   esac
 done
 
-# function to get the id of the query timestamp for the selected timeframe (DAYS)
-# calculates the timestamp first, iterates through the timestamp_index in pihole-ftl.db until it finds an corresponding id
-# iteration is necessary because not for all timestamps exists queries, so it takes the next bigger one
-# it is faster to externally iterate than to use 'timestamp>=' as 'timestamp=' uses the index and is very fast
+echo
+echo "*** Pihole Adlist Tool ***"
+echo
+
+# function to get the id of the query timestamp for the selected timeframe (DAYS_REQUESTED)
+# if "all time" is selected, ID=1 and timestamp=first query timestamp
+# otherwise calculates the timestamp, selectes the next bigger or equal timestamp in pihole-ftl.db and get corresponding id
 # using id as it is as INTEGER PRIMARY KEY an alias for ROWIDs
+# in case the requested time period started before the first query timestamp, show warining 
 
 get_ftl_id () {
-    declare -i TIMESTAMP
-    TIMESTAMP=$(date +%s)
-    TIMESTAMP=$TIMESTAMP-86400*${DAYS}
+    TIMESTAMP_FIRST_QUERY=$(sqlite3 $PIHOLE_FTL "SELECT MIN(timestamp) FROM queries;")
+    DATE_FIRST_QUERY=$(date -d @$TIMESTAMP_FIRST_QUERY +%d.%m.%Y%t%k:%M:%S)
 
-    while [ $FTL_ID = 0 ]; do
-        FTL_ID=$(sqlite3 $PIHOLE_FTL "SELECT MIN(id) FROM queries WHERE timestamp=$TIMESTAMP;")
-        TIMESTAMP=$TIMESTAMP+1
-    done
+    if [ "$DAYS_REQUESTED" = 0 ];
+        then FTL_ID=1
+        DATE_FIRST_ANALYZED=$DATE_FIRST_QUERY
+    else
+
+        TIMESTAMP_REQUESTED=$(date +%s)
+        TIMESTAMP_REQUESTED=$TIMESTAMP_REQUESTED-86400*${DAYS_REQUESTED}
+        DATE_REQUESTED=$(date -d @$TIMESTAMP_REQUESTED +%d.%m.%Y%t%k:%M:%S)
+  
+        if [ "$TIMESTAMP_FIRST_QUERY" -gt "$TIMESTAMP_REQUESTED" ];
+            then 
+                echo
+                echo "Warning: You requested to analyze "${DAYS_REQUESTED}" days (since "$DATE_REQUESTED"), but oldest query is from "$DATE_FIRST_QUERY". Using this instead." 
+                echo
+        fi
+        read FTL_ID TIMESTAMP_FIRST_ANALYZED <<<$(sqlite3 -separator " " $PIHOLE_FTL "SELECT MIN(id),timestamp FROM queries WHERE timestamp>=$TIMESTAMP_REQUESTED;")
+        DATE_FIRST_ANALYZED=$(date -d @$TIMESTAMP_FIRST_ANALYZED +%d.%m.%Y%t%k:%M:%S) 
+    fi
+
 }
 
 
-# get FTL_ID based on DAYS
-case "$DAYS" in
-    ''|*[1-9]*)     get_ftl_id ;;
-    0)              FTL_ID=1 ;;
+# get FTL_ID based on DAYS_REQUESTED
+case "$DAYS_REQUESTED" in
+    ''|*[0-9]*)     get_ftl_id ;;
     *) print_help
         exit 1 ;;
 esac
@@ -96,9 +119,7 @@ esac
 
 
 
-echo
-echo "*** Pihole Adlist Tool ***"
-echo
+
 echo "Calculating....."
 echo
 echo "This might take some time - please be patient."
@@ -161,7 +182,6 @@ done
 # get some statistics
 read NUM_DOMAINS_BLOCKED HITS_TOTAL <<<$(sqlite3 -separator " " $PIHOLE_FTL "SELECT COUNT(DISTINCT domain),count (domain) FROM queries WHERE id>=${FTL_ID} AND status == 1;")
 
-DATE_FIRST_QUERY=$(date -d @$(sqlite3 $PIHOLE_FTL "SELECT MIN(timestamp) FROM queries;"))
 NUM_ADLISTS=$(sqlite3 $TEMP_DB "SELECT COUNT(id) FROM adlist;")
 NUM_ADLISTS_ENABLED=$(sqlite3 $TEMP_DB "SELECT COUNT(id) FROM adlist WHERE enabled==1;")
 NUM_GRAVITY_UNIQUE_DOMAINS=$(sqlite3 $GRAVITY "SELECT value FROM info WHERE property == 'gravity_count';")
@@ -174,14 +194,13 @@ NUM_TOTAL_UNIQUE_DOMAINS=$(sqlite3 $TEMP_DB "SELECT COUNT(*) FROM unique_domains
 echo
 echo "You have "$NUM_ADLISTS" adlists configured ("$NUM_ADLISTS_ENABLED" enabled). Your gravity.db contains "$NUM_GRAVITY_UNIQUE_DOMAINS" unique domains."
 echo
-if [ "$DAYS" = 0 ];
-    then 
-        echo "Since the beging of time ("$DATE_FIRST_QUERY") "$NUM_DOMAINS_BLOCKED" different domains from your adlists have been blocked "$HITS_TOTAL" times in total."
-    else echo "In the last "$DAYS" Days "$NUM_DOMAINS_BLOCKED" different domains from your adlists have been blocked "$HITS_TOTAL" times in total."
-fi
+echo "Since "$DATE_FIRST_ANALYZED" "$NUM_DOMAINS_BLOCKED" different domains from your adlists have been blocked "$HITS_TOTAL" times in total."
+
 
 echo
 echo "Using you current adlist configuration "$NUM_DOMAINS_BLOCKED_CURRENT" domains would have been blocked "$HITS_TOTAL_CURRENT" times."
+echo
+echo
 echo
 echo
 read -p "Press enter to continue..."
@@ -199,6 +218,8 @@ if [ "$BLACKLIST_GRAVITY" -ne 0 ]; then
     echo
     echo "use 'pihole -q \"domain\"' to see on which adlist(s) it is"
     echo
+    echo
+    echo
     read -p "Press enter to continue..."
 fi
 
@@ -209,20 +230,16 @@ echo
 if [ "$TOP" = 0 ]; then :
 else
 echo 
-    if [ "$DAYS" = 0 ];
-    then 
-        echo "*** Top blocked adlist domains ***"
-        echo
-        echo
-        echo "Those would  have been the "$TOP" top blocked adlist domains since "$DATE_FIRST_QUERY" using your current adlist configuration"
-    else 
-        echo "*** Top blocked domains ***"      
-        echo
-        echo        
-        echo "Those would have been the "$TOP" top blocked adlist domains in the last "$DAYS" Days using your current adlist configuration" 
-    fi
+
+ echo "*** Top blocked adlist domains ***"
+echo
+echo
+echo "Those would  have been the "$TOP" top blocked adlist domains since "$DATE_FIRST_ANALYZED" using your current adlist configuration"
 echo
 sqlite3 -column -header $TEMP_DB "SELECT domain, hits FROM blocked_domains LIMIT "${TOP}";"
+echo
+echo        
+echo
 echo
 read -p "Press enter to continue..."
 fi
