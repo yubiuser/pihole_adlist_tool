@@ -7,7 +7,7 @@ GRAVITY="file:/etc/pihole/gravity.db?mode=ro"
 
 #define and initialize variables
 declare -i DAYS_REQUESTED
-DAYS_REQUESTED=90
+DAYS_REQUESTED=30
 declare -i TIMESTAMP_REQUESTED
 DATE_REQUESTED=
 DATE_FIRST_QUERY=
@@ -39,7 +39,7 @@ print_help() {
   echo "Usage: pihole_adlist_tool [options]
     
     Options:
-    -d [Num]                         Consider the last [Num] days (Default: 90). Enter 0 for all-time analysis.
+    -d [Num]                         Consider the last [Num] days (Default: 30). Enter 0 for all-time analysis.
     -t [Num]                         Show top blocked domains. [Num] defines the number to show.
     -s [total/covered/hits/unique]   Set sorting order to total (total domains), covered (domains covered), hits (hits covered) or unique (covered unique domains) DESC. (Default sorting: id ASC)
     -u                               Show covered unique domains

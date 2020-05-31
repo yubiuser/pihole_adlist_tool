@@ -51,7 +51,7 @@ On my [NanoPi NeoPlus2](http://wiki.friendlyarm.com/wiki/index.php/NanoPi_NEO_Pl
 pihole_adlist_tool [options]
 
 options:
-    -d [Num]                         Consider the last [Num] days (Default: 90). Enter 0 for all-time analysis.
+    -d [Num]                         Consider the last [Num] days (Default: 30). Enter 0 for all-time analysis.
     -t [Num]                         Show top blocked domains. [Num] defines the number to show.
     -s [total/domains/hits/unique]   Set sorting order to total domains, domains covered, hits covered or unique covered domains DESC. (Default sorting: id ASC)
     -u                               Show covered unique domains
