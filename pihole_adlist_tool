@@ -30,6 +30,9 @@ BLACKLIST_GRAVITY=
 UNIQUE=
 NUM_TOTAL_UNIQUE_DOMAINS=
 
+#for text formating
+bold=$(tput bold)
+normal=$(tput sgr0)
 
 # help message
 print_help() {
@@ -60,7 +63,7 @@ while getopts 'd:t:s:uh' flag; do
 done
 
 echo
-echo "*** Pihole Adlist Tool ***"
+echo "${bold}*** Pihole Adlist Tool ***${normal}"
 echo
 
 # function to get the id of the query timestamp for the selected timeframe (DAYS_REQUESTED)
@@ -85,7 +88,7 @@ get_ftl_id () {
         if [ "$TIMESTAMP_FIRST_QUERY" -gt "$TIMESTAMP_REQUESTED" ];
             then 
                 echo
-                echo "Warning: You requested to analyze "${DAYS_REQUESTED}" days (since "$DATE_REQUESTED"), but oldest query is from "$DATE_FIRST_QUERY". Using this instead." 
+                echo "${bold}Warning:${normal} You requested to analyze "${DAYS_REQUESTED}" days (since "$DATE_REQUESTED"), but oldest query is from "$DATE_FIRST_QUERY". Using this instead." 
                 echo
         fi
         read FTL_ID TIMESTAMP_FIRST_ANALYZED <<<$(sqlite3 -separator " " $PIHOLE_FTL "SELECT MIN(id),timestamp FROM queries WHERE timestamp>=$TIMESTAMP_REQUESTED;")
@@ -192,13 +195,13 @@ NUM_TOTAL_UNIQUE_DOMAINS=$(sqlite3 $TEMP_DB "SELECT COUNT(*) FROM unique_domains
 
 
 echo
-echo "You have "$NUM_ADLISTS" adlists configured ("$NUM_ADLISTS_ENABLED" enabled). Your gravity.db contains "$NUM_GRAVITY_UNIQUE_DOMAINS" unique domains."
+echo "You have ${bold}"$NUM_ADLISTS" adlists${normal} configured ("$NUM_ADLISTS_ENABLED" enabled). Your gravity.db contains ${bold}"$NUM_GRAVITY_UNIQUE_DOMAINS" unique domains${normal}."
 echo
-echo "Since "$DATE_FIRST_ANALYZED" "$NUM_DOMAINS_BLOCKED" different domains from your adlists have been blocked "$HITS_TOTAL" times in total."
+echo "Since "$DATE_FIRST_ANALYZED" ${bold}"$NUM_DOMAINS_BLOCKED" different domains${normal} from your adlists have been blocked ${bold}"$HITS_TOTAL" times${normal} in total."
 
 
 echo
-echo "Using you current adlist configuration "$NUM_DOMAINS_BLOCKED_CURRENT" domains would have been blocked "$HITS_TOTAL_CURRENT" times."
+echo "Using you current adlist configuration ${bold}"$NUM_DOMAINS_BLOCKED_CURRENT" domains${normal} would have been blocked ${bold}"$HITS_TOTAL_CURRENT" times${normal}."
 echo
 echo
 echo
@@ -208,7 +211,7 @@ read -p "Press enter to continue..."
 if [ "$BLACKLIST_GRAVITY" -ne 0 ]; then
     echo
     echo
-    echo "**You hit a spececial case***" 
+    echo "${bold}**You hit a spececial case***${normal}" 
     echo "Your personal blacklist contains at least one domain that is also on an adlist and has been requested in the selected time period."
     echo "If pihole blocked it (because blacklist was enabled at the time of the request) it got a special status ('blocked by blacklist' instead of 'blocked by gravity')"
     echo "and is NOT counted on the above number of blocked domains/hits. As the domain is on an adlist the number of potentially blocked domains/hits is therefore is higher."
@@ -230,15 +233,14 @@ echo
 if [ "$TOP" = 0 ]; then :
 else
 echo 
-
- echo "*** Top blocked adlist domains ***"
+echo "${bold}*** Top blocked adlist domains ***${normal}"
 echo
 echo
-echo "Those would  have been the "$TOP" top blocked adlist domains since "$DATE_FIRST_ANALYZED" using your current adlist configuration"
+echo "Those would  have been the ${bold}"$TOP" top blocked adlist domains${normal} since "$DATE_FIRST_ANALYZED" using your current adlist configuration"
 echo
 sqlite3 -column -header $TEMP_DB "SELECT domain, hits FROM blocked_domains LIMIT "${TOP}";"
 echo
-echo        
+echo
 echo
 echo
 read -p "Press enter to continue..."
@@ -247,7 +249,7 @@ fi
 echo
 echo
 
-echo "*** Adlist coverage ***"
+echo "${bold}*** Adlist coverage ***${normal}"
 echo
 echo
 
@@ -259,7 +261,7 @@ echo "Domains from disabled adlists are not stored in gravity's database. If you
 echo "As the same domains usually appears on more than one adlist the sum of covered domains from this table is greater "
 echo "than the number of calculated blocked domains shown above"
 echo
-echo "In total your adlists contain "$NUM_TOTAL_UNIQUE_DOMAINS" visited (covered) unique domains - meaning those domains are contained only in a single adlist. "
+echo "In total your adlists contain ${bold}"$NUM_TOTAL_UNIQUE_DOMAINS" visited (covered) unique domains${normal} - meaning those domains are contained only in a single adlist. "
 echo
 echo
 
@@ -270,7 +272,7 @@ if [ "$UNIQUE" = 1 ];
         read -p "Press enter to continue..."
         echo
         echo
-        echo "***Covered unique domains ***"
+        echo "${bold}***Covered unique domains ***${normal}"
         echo
         sqlite3 -column -header $TEMP_DB "SELECT domain, adlist_id, address FROM unique_domains JOIN adlist WHERE adlist_id=id;"
         echo
