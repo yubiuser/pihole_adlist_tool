@@ -9,11 +9,13 @@ GRAVITY="file:/etc/pihole/gravity.db?mode=ro"
 declare -i DAYS_REQUESTED
 DAYS_REQUESTED=30
 declare -i TIMESTAMP_REQUESTED
+declare -i TIMESTAMP_FIRST_QUERY
+declare -i TIMESTAMP_LAST_QUERY
+declare -i TIMESTAMP_FIRST_ANALYZED
 DATE_REQUESTED=
 DATE_FIRST_QUERY=
-declare -i TIMESTAMP_FIRST_QUERY
-declare -i TIMESTAMP_FIRST_ANALYZED
 DATE_FIRST_ANALYZED=
+DATE_LAST_QUERY=
 declare -i FTL_ID
 FTL_ID=0
 TOP=0
@@ -75,6 +77,8 @@ echo
 get_ftl_id () {
     TIMESTAMP_FIRST_QUERY=$(sqlite3 $PIHOLE_FTL "SELECT MIN(timestamp) FROM queries;")
     DATE_FIRST_QUERY=$(date -d @$TIMESTAMP_FIRST_QUERY +%d.%m.%Y%t%k:%M:%S)
+    TIMESTAMP_LAST_QUERY=$(sqlite3 $PIHOLE_FTL "SELECT MAX(timestamp) FROM queries;")
+    DATE_LAST_QUERY=$(date -d @$TIMESTAMP_LAST_QUERY +%d.%m.%Y%t%k:%M:%S)
 
     if [ "$DAYS_REQUESTED" = 0 ];
         then FTL_ID=1
@@ -84,11 +88,20 @@ get_ftl_id () {
         TIMESTAMP_REQUESTED=$(date +%s)
         TIMESTAMP_REQUESTED=$TIMESTAMP_REQUESTED-86400*${DAYS_REQUESTED}
         DATE_REQUESTED=$(date -d @$TIMESTAMP_REQUESTED +%d.%m.%Y%t%k:%M:%S)
+
+        if [ "$TIMESTAMP_REQUESTED" -gt "$TIMESTAMP_LAST_QUERY" ];
+            then
+                echo
+                echo "${bold}Warning:${normal} You requested to analyze "${DAYS_REQUESTED}" days (starting from "$DATE_REQUESTED"), but last query is from "$DATE_LAST_QUERY". Nothing to do here." 
+                echo
+                exit 0
+        fi
+
   
-        if [ "$TIMESTAMP_FIRST_QUERY" -gt "$TIMESTAMP_REQUESTED" ];
+        if [ "$TIMESTAMP_REQUESTED" -lt "$TIMESTAMP_FIRST_QUERY" ];
             then 
                 echo
-                echo "${bold}Warning:${normal} You requested to analyze "${DAYS_REQUESTED}" days (since "$DATE_REQUESTED"), but oldest query is from "$DATE_FIRST_QUERY". Using this instead." 
+                echo "${bold}Warning:${normal} You requested to analyze "${DAYS_REQUESTED}" days (starting from "$DATE_REQUESTED"), but oldest query is from "$DATE_FIRST_QUERY". Using this instead." 
                 echo
         fi
         read FTL_ID TIMESTAMP_FIRST_ANALYZED <<<$(sqlite3 -separator " " $PIHOLE_FTL "SELECT MIN(id),timestamp FROM queries WHERE timestamp>=$TIMESTAMP_REQUESTED;")
