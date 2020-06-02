@@ -6,8 +6,7 @@ PIHOLE_FTL="file:/etc/pihole/pihole-FTL.db?mode=ro"
 GRAVITY="file:/etc/pihole/gravity.db?mode=ro"
 
 #define and initialize variables
-declare -i DAYS_REQUESTED
-DAYS_REQUESTED=30
+declare -i DAYS_REQUESTED=30
 declare -i TIMESTAMP_REQUESTED
 declare -i TIMESTAMP_FIRST_QUERY
 declare -i TIMESTAMP_LAST_QUERY
@@ -17,7 +16,6 @@ DATE_FIRST_QUERY=
 DATE_FIRST_ANALYZED=
 DATE_LAST_QUERY=
 declare -i FTL_ID
-FTL_ID=0
 TOP=0
 SORT=
 NUM_DOMAINS_BLOCKED=
@@ -68,6 +66,11 @@ echo
 echo "${bold}*** Pihole Adlist Tool ***${normal}"
 echo
 
+timestamp2date () {
+    local DATE=$(date -d @$1 +%d.%m.%Y%t%k:%M:%S)
+    echo "$DATE"
+}
+
 # function to get the id of the query timestamp for the selected timeframe (DAYS_REQUESTED)
 # if "all time" is selected, ID=1 and timestamp=first query timestamp
 # otherwise calculates the timestamp, selectes the next bigger or equal timestamp in pihole-ftl.db and get corresponding id
@@ -76,9 +79,9 @@ echo
 
 get_ftl_id () {
     TIMESTAMP_FIRST_QUERY=$(sqlite3 $PIHOLE_FTL "SELECT MIN(timestamp) FROM queries;")
-    DATE_FIRST_QUERY=$(date -d @$TIMESTAMP_FIRST_QUERY +%d.%m.%Y%t%k:%M:%S)
+    DATE_FIRST_QUERY="$(timestamp2date $TIMESTAMP_FIRST_QUERY)"
     TIMESTAMP_LAST_QUERY=$(sqlite3 $PIHOLE_FTL "SELECT MAX(timestamp) FROM queries;")
-    DATE_LAST_QUERY=$(date -d @$TIMESTAMP_LAST_QUERY +%d.%m.%Y%t%k:%M:%S)
+    DATE_LAST_QUERY="$(timestamp2date $TIMESTAMP_LAST_QUERY)"
 
     if [ "$DAYS_REQUESTED" = 0 ];
         then FTL_ID=1
@@ -87,7 +90,7 @@ get_ftl_id () {
 
         TIMESTAMP_REQUESTED=$(date +%s)
         TIMESTAMP_REQUESTED=$TIMESTAMP_REQUESTED-86400*${DAYS_REQUESTED}
-        DATE_REQUESTED=$(date -d @$TIMESTAMP_REQUESTED +%d.%m.%Y%t%k:%M:%S)
+        DATE_REQUESTED="$(timestamp2date $TIMESTAMP_REQUESTED)"
 
         if [ "$TIMESTAMP_REQUESTED" -gt "$TIMESTAMP_LAST_QUERY" ];
             then
@@ -103,9 +106,11 @@ get_ftl_id () {
                 echo
                 echo "${bold}Warning:${normal} You requested to analyze "${DAYS_REQUESTED}" days (starting from "$DATE_REQUESTED"), but oldest query is from "$DATE_FIRST_QUERY". Using this instead." 
                 echo
+                echo
+                echo
         fi
         read FTL_ID TIMESTAMP_FIRST_ANALYZED <<<$(sqlite3 -separator " " $PIHOLE_FTL "SELECT MIN(id),timestamp FROM queries WHERE timestamp>=$TIMESTAMP_REQUESTED;")
-        DATE_FIRST_ANALYZED=$(date -d @$TIMESTAMP_FIRST_ANALYZED +%d.%m.%Y%t%k:%M:%S) 
+        DATE_FIRST_ANALYZED="$(timestamp2date $TIMESTAMP_FIRST_ANALYZED)"
     fi
 
 }
