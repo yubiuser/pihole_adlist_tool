@@ -47,6 +47,44 @@ print_help() {
 "
 }
 
+#convert timestamp to date
+
+timestamp2date () {
+    local DATE=$(date -d @$1 +%d.%m.%Y%t%k:%M:%S)
+    echo "$DATE"
+}
+
+
+# calculate timestamps
+
+set_timestamps () {
+
+    TIMESTAMP_FIRST_QUERY=$(sqlite3 $PIHOLE_FTL "SELECT MIN(timestamp) FROM queries;") 
+    TIMESTAMP_LAST_QUERY=$(sqlite3 $PIHOLE_FTL "SELECT MAX(timestamp) FROM queries;")
+    if [ "$DAYS_REQUESTED" = 0 ];
+        then
+            TIMESTAMP_REQUESTED=$TIMESTAMP_FIRST_QUERY
+        else
+            TIMESTAMP_REQUESTED=$(date +%s)
+            TIMESTAMP_REQUESTED=$TIMESTAMP_REQUESTED-86400*${DAYS_REQUESTED}
+    fi
+    TIMESTAMP_FIRST_ANALYZED=$(sqlite3 $PIHOLE_FTL "SELECT min(timestamp) FROM queries WHERE timestamp>=$TIMESTAMP_REQUESTED;")
+}
+
+# converts dates
+
+set_dates () {
+    DATE_FIRST_QUERY="$(timestamp2date $TIMESTAMP_FIRST_QUERY)"
+    DATE_LAST_QUERY="$(timestamp2date $TIMESTAMP_LAST_QUERY)"
+    DATE_REQUESTED="$(timestamp2date $TIMESTAMP_REQUESTED)"
+    DATE_FIRST_ANALYZED="$(timestamp2date $TIMESTAMP_FIRST_ANALYZED)"
+    
+}
+
+
+### warm-up ######
+
+
 # getopts flags and assing arguments to variables
 
 while getopts 'd:t:s:uh' flag; do
@@ -62,67 +100,25 @@ while getopts 'd:t:s:uh' flag; do
   esac
 done
 
-echo
-echo "${bold}*** Pihole Adlist Tool ***${normal}"
-echo
+#exit if $TOP is no digit
 
-timestamp2date () {
-    local DATE=$(date -d @$1 +%d.%m.%Y%t%k:%M:%S)
-    echo "$DATE"
-}
-
-# function to get the id of the query timestamp for the selected timeframe (DAYS_REQUESTED)
-# if "all time" is selected, ID=1 and timestamp=first query timestamp
-# otherwise calculates the timestamp, selectes the next bigger or equal timestamp in pihole-ftl.db and get corresponding id
-# using id as it is as INTEGER PRIMARY KEY an alias for ROWIDs
-# in case the requested time period started before the first query timestamp, show warining 
-
-get_ftl_id () {
-    TIMESTAMP_FIRST_QUERY=$(sqlite3 $PIHOLE_FTL "SELECT MIN(timestamp) FROM queries;")
-    DATE_FIRST_QUERY="$(timestamp2date $TIMESTAMP_FIRST_QUERY)"
-    TIMESTAMP_LAST_QUERY=$(sqlite3 $PIHOLE_FTL "SELECT MAX(timestamp) FROM queries;")
-    DATE_LAST_QUERY="$(timestamp2date $TIMESTAMP_LAST_QUERY)"
-
-    if [ "$DAYS_REQUESTED" = 0 ];
-        then FTL_ID=1
-        DATE_FIRST_ANALYZED=$DATE_FIRST_QUERY
-    else
-
-        TIMESTAMP_REQUESTED=$(date +%s)
-        TIMESTAMP_REQUESTED=$TIMESTAMP_REQUESTED-86400*${DAYS_REQUESTED}
-        DATE_REQUESTED="$(timestamp2date $TIMESTAMP_REQUESTED)"
-
-        if [ "$TIMESTAMP_REQUESTED" -gt "$TIMESTAMP_LAST_QUERY" ];
-            then
-                echo
-                echo "${bold}Warning:${normal} You requested to analyze "${DAYS_REQUESTED}" days (starting from "$DATE_REQUESTED"), but last query is from "$DATE_LAST_QUERY". Nothing to do here." 
-                echo
-                exit 0
-        fi
-
-  
-        if [ "$TIMESTAMP_REQUESTED" -lt "$TIMESTAMP_FIRST_QUERY" ];
-            then 
-                echo
-                echo "${bold}Warning:${normal} You requested to analyze "${DAYS_REQUESTED}" days (starting from "$DATE_REQUESTED"), but oldest query is from "$DATE_FIRST_QUERY". Using this instead." 
-                echo
-                echo
-                echo
-        fi
-        read FTL_ID TIMESTAMP_FIRST_ANALYZED <<<$(sqlite3 -separator " " $PIHOLE_FTL "SELECT MIN(id),timestamp FROM queries WHERE timestamp>=$TIMESTAMP_REQUESTED;")
-        DATE_FIRST_ANALYZED="$(timestamp2date $TIMESTAMP_FIRST_ANALYZED)"
-    fi
-
-}
-
-
-# get FTL_ID based on DAYS_REQUESTED
-case "$DAYS_REQUESTED" in
-    ''|*[0-9]*)     get_ftl_id ;;
+case "$TOP" in
+    ''|*[0-9]*)     ;;
     *) print_help
         exit 1 ;;
 esac
 
+
+#exit if $DAYS_REQUESTED is no digit
+
+case "$DAYS_REQUESTED" in
+    ''|*[0-9]*)     ;;
+    *) print_help
+        exit 1 ;;
+esac
+
+
+# set sort order for adlist table based on $SORT
 
 case "$SORT" in
     total)      SORT_ORDER="total_domains DESC" ;;
@@ -132,18 +128,50 @@ case "$SORT" in
     *)          SORT_ORDER="id ASC" ;;
 esac
 
-case "$TOP" in
-    ''|*[0-9]*)     ;;
-    *) print_help
-        exit 1 ;;
-esac
 
 
+#### Program starts #####
+
+
+echo
+echo "${bold}*** Pihole Adlist Tool ***${normal}"
+echo
+
+# calculate various timestamps, converts them to dates
+set_timestamps
+set_dates
+
+# get FTL_ID based on $TIMESTAMP_REQUESTED
+FTL_ID=$(sqlite3 $PIHOLE_FTL "SELECT MIN(id) FROM queries WHERE timestamp>=$TIMESTAMP_REQUESTED;")
+
+
+
+# Print timestamp warnings
+if [ "$TIMESTAMP_REQUESTED" -gt "$TIMESTAMP_LAST_QUERY" ];
+    then
+        echo
+        echo "${bold}Warning:${normal} You requested to analyze "${DAYS_REQUESTED}" days (starting from "$DATE_REQUESTED"), but last query is from "$DATE_LAST_QUERY". Nothing to do here." 
+        echo
+        exit 0
+fi
+
+if [ "$TIMESTAMP_REQUESTED" -lt "$TIMESTAMP_FIRST_QUERY" ];
+    then 
+        echo
+        echo "${bold}Warning:${normal} You requested to analyze "${DAYS_REQUESTED}" days (starting from "$DATE_REQUESTED"), but oldest query is from "$DATE_FIRST_QUERY". Using this instead." 
+        echo
+        echo
+        echo
+fi
 
 
 echo "Calculating....."
 echo
 echo "This might take some time - please be patient."
+#
+#
+#
+
 # Database manipulation
 # To analyze the data this tool creates a temporary database using data provided by pihole-ftl.db and gravity.db
 # timeout is set to 5000 ms in which sqlite tries to open an locked database
@@ -249,19 +277,19 @@ echo
 echo
 # prints n top potentially blocked domains based on -t argument
 if [ "$TOP" = 0 ]; then :
-else
-echo 
-echo "${bold}*** Top blocked adlist domains ***${normal}"
-echo
-echo
-echo "Those would  have been the ${bold}"$TOP" top blocked adlist domains${normal} since "$DATE_FIRST_ANALYZED" using your current adlist configuration"
-echo
-sqlite3 -column -header $TEMP_DB "SELECT domain, hits FROM blocked_domains LIMIT "${TOP}";"
-echo
-echo
-echo
-echo
-read -p "Press enter to continue..."
+    else
+        echo 
+        echo "${bold}*** Top blocked adlist domains ***${normal}"
+        echo
+        echo
+        echo "Those would  have been the ${bold}"$TOP" top blocked adlist domains${normal} since "$DATE_FIRST_ANALYZED" using your current adlist configuration"
+        echo
+        sqlite3 -column -header $TEMP_DB "SELECT domain, hits FROM blocked_domains LIMIT "${TOP}";"
+        echo
+        echo
+        echo
+        echo
+        read -p "Press enter to continue..."
 fi
     
 echo
@@ -298,4 +326,5 @@ if [ "$UNIQUE" = 1 ];
 fi
 # removes temporary database
 rm $TEMP_DB
+
 
