@@ -22,7 +22,7 @@ As domains usually appear on more then one adlist I introduce the concept of ***
 ---
 **Limits**
 
-- Disabled blocklist won't be analyzed as gravity is not including domains from deactivated adlists. If you want to check them also you have to enable them and run `pihole -g`
+- Disabled blocklist won't be analyzed as gravity is not including domains from deactivated adlists. You can enable all adlists from within the script.
 
 -  Black/Whitelisted domains (including regex) are not considered when calculating the number of covered domains (and hits)
 	- Whitelisted domains reduce the number of blocked domains as reported by pihole compared to the calculated numbers

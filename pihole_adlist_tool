@@ -3,7 +3,7 @@
 # define path to pihole's databases and temporary database
 TEMP_DB="/tmp/temp.db"
 PIHOLE_FTL="file:/etc/pihole/pihole-FTL.db?mode=ro"
-GRAVITY="file:/etc/pihole/gravity.db?mode=ro"
+GRAVITY="file:/etc/pihole/gravity.db"
 
 #define and initialize variables
 declare -i DAYS_REQUESTED=30
@@ -29,6 +29,9 @@ HITS_TOTAL_CURRENT=
 BLACKLIST_GRAVITY=
 UNIQUE=
 NUM_TOTAL_UNIQUE_DOMAINS=
+declare -a adlist_conf_old_enabled
+declare -a adlist_conf_unique_enabled
+declare -i menu_selection
 
 #for text formating
 bold=$(tput bold)
@@ -137,6 +140,41 @@ echo
 echo "${bold}*** Pihole Adlist Tool ***${normal}"
 echo
 
+
+
+# save old adlist_configuration 
+adlist_conf_old_enabled=(`sqlite3 $GRAVITY "select id from adlist where enabled=1;"`)
+
+echo "Would you like to analyze your current adlist configuration or first enable all adlists (current can be restored later)?"
+echo
+echo "1)  Current adlist configuration" 
+echo "2)  Enable all adlists (runs pihole -g)"
+echo
+
+while [[ $menu_selection != [12] ]]; do
+  read -p "Please select: " menu_selection
+done
+echo
+echo
+
+
+if [ "$menu_selection" -eq 2 ]; then
+
+    echo "Enabling all adlists...."
+    sudo sqlite3 $GRAVITY "UPDATE adlist SET enabled=1;"
+    echo
+    echo
+    echo "Starting gravity"
+    echo
+    pihole -g
+    echo 
+    echo "Gravity update finished"
+    echo
+    echo
+    echo
+fi
+
+
 # calculate various timestamps, converts them to dates
 set_timestamps
 set_dates
@@ -160,11 +198,12 @@ if [ "$TIMESTAMP_REQUESTED" -lt "$TIMESTAMP_FIRST_QUERY" ];
         echo
         echo "${bold}Warning:${normal} You requested to analyze "${DAYS_REQUESTED}" days (starting from "$DATE_REQUESTED"), but oldest query is from "$DATE_FIRST_QUERY". Using this instead." 
         echo
-        echo
-        echo
 fi
 
 
+echo
+echo
+echo
 echo "Calculating....."
 echo
 echo "This might take some time - please be patient."
@@ -197,7 +236,7 @@ sqlite3 -cmd ".timeout 5000" $TEMP_DB << EOF
     create table unique_domains(domain TEXT, adlist_id INTEGER);
     
     ATTACH DATABASE "${PIHOLE_FTL}" AS pihole_ftl_db;
-    ATTACH DATABASE "${GRAVITY}" AS gravity_db;
+    ATTACH DATABASE "${GRAVITY}?mode=ro" AS gravity_db;
 
     INSERT INTO blocked_domains(domain, hits) SELECT domain, COUNT(domain) FROM pihole_ftl_db.queries WHERE EXISTS (select 1 from gravity_db.gravity where gravity.domain=queries.domain) AND id>=${FTL_ID} GROUP BY domain ORDER BY COUNT(domain) DESC;
     
@@ -238,6 +277,7 @@ NUM_DOMAINS_BLOCKED_CURRENT=$(sqlite3 $TEMP_DB "SELECT COUNT(domain) FROM blocke
 HITS_TOTAL_CURRENT=$(sqlite3 $TEMP_DB "SELECT SUM(hits) FROM blocked_domains;")
 BLACKLIST_GRAVITY=$(sqlite3 $TEMP_DB "SELECT COUNT(*) FROM blacklist_gravity;")
 NUM_TOTAL_UNIQUE_DOMAINS=$(sqlite3 $TEMP_DB "SELECT COUNT(*) FROM unique_domains;")
+
 
 
 echo
@@ -303,19 +343,78 @@ echo
 sqlite3 -column -header $TEMP_DB "SELECT id, enabled, total_domains, domains_covered, hits_covered, unique_domains_covered, address FROM adlist ORDER BY ${SORT_ORDER};"
 
 echo
-echo "Domains from disabled adlists are not stored in gravity's database. If you want to include them, enable them and run 'pihole -g'"
+echo
+echo
+echo "Domains from disabled adlists are not stored in gravity's database. If you want to include them in the analysis, run this script again and select 'Enable all adlists'"
 echo "As the same domains usually appears on more than one adlist the sum of covered domains from this table is greater "
 echo "than the number of calculated blocked domains shown above"
+echo
 echo
 echo "In total your adlists contain ${bold}"$NUM_TOTAL_UNIQUE_DOMAINS" visited (covered) unique domains${normal} - meaning those domains are contained only in a single adlist. "
 echo
 echo
 
+
+# save adlist unique_configuration 
+adlist_conf_unique_enabled=(`sqlite3 $TEMP_DB "select id from adlist where unique_domains_covered IS NOT NULL;"`)
+
+if [ "$menu_selection" -eq 1 ]; 
+    then
+        menu_selection=
+        echo "Would you like to keept your adlist configurartion, or keep only adlists enabled with at least one unique covered domain?"
+        echo
+        echo "1)  Keep adlist configuration" 
+        echo "2)  Enable only adlists with covered unique domains"
+        echo
+        while [[ $menu_selection != [12] ]]; do
+          read -p "Please select: " menu_selection
+        done
+
+    else
+        menu_selection=
+        echo "Would you like to keep all adlists enabled, keep only adlists enabled with at least one unique covered domain, or revert to your previous adlist configurartion?"
+        echo
+        echo "1)  Keep all adlists enabled" 
+        echo "2)  Enable only adlists with covered unique domains"
+        echo "3)  Restore previous adlist configuration"
+        echo
+        while [[ $menu_selection != [123] ]]; do
+          read -p "Please select: " menu_selection
+        done
+fi
+
+if [ "$menu_selection" -eq 2 ]; then
+    
+    echo "Enabling adlists with covered unique domains...."
+    sudo sqlite3 $GRAVITY "UPDATE adlist SET enabled=0;"
+    for adlist_id in "${adlist_conf_unique_enabled[@]}"; do
+       sudo  sqlite3 $GRAVITY "UPDATE adlist SET enabled=1 where id=$adlist_id;"
+    done
+    pihole restartdns reload-lists    
+    echo
+    echo "Adlists with covered unique domains enabled"
+    echo
+fi
+
+if [ "$menu_selection" -eq 3 ]; then
+
+    echo "Restoring previous adlist configuration...."
+    sudo sqlite3 $GRAVITY "UPDATE adlist SET enabled=0;"
+    for adlist_id in "${adlist_conf_old_enabled[@]}"; do
+       sudo sqlite3 $GRAVITY "UPDATE adlist SET enabled=1 where id=$adlist_id;"
+    done
+    pihole restartdns reload-lists    
+    echo
+    echo "Previous adlist configuration restored"
+    echo
+fi
+
+
 if [ "$UNIQUE" = 1 ];
     then 
         echo
         echo        
-        read -p "Press enter to continue..."
+        read -p "Press enter to continue (show covered unique domains)..."
         echo
         echo
         echo "${bold}***Covered unique domains ***${normal}"
