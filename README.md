@@ -76,5 +76,5 @@ I'm not a developer. This script is mostly done by copy-pasting snippets I found
 	- Select all domains from pihole-ftl.db that that are also found in gravity.db
 	- Get the total number of blocked domains from pihole-ftl.db
 	- Get the total number of hits from pihole-ftl.db
-	- Update adlist with the total number of domains from gravity.db for each adlist
+	- ~~Update adlist with the total number of domains from gravity.db for each adlist~~ (see  [e0af664](https://github.com/yubiuser/pihole_adlist_tool/commit/e0af6642487515a28c4d1c7eb91f19def634ddce))
 - format sql output with awk
