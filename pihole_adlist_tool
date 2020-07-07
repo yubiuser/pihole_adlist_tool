@@ -4,6 +4,7 @@
 TEMP_DB="/tmp/temp.db"
 PIHOLE_FTL="file:/etc/pihole/pihole-FTL.db?mode=ro"
 GRAVITY="file:/etc/pihole/gravity.db"
+PIHOLE_DIR="/etc/pihole/"
 
 #define and initialize variables
 declare -i DAYS_REQUESTED=30
@@ -260,11 +261,27 @@ sqlite3 -cmd ".timeout 5000" $TEMP_DB << EOF
 .exit
 EOF
 
-# table adlist is updated with total number of domains for each id (adlist)
-# doing this outside of the heredoc becaus external loop is faster than nestest UPDATE through whole table scan
-sqlite3 -separator " " $GRAVITY "SELECT adlist_id,count(domain) FROM gravity GROUP BY adlist_id;" | while read adlist_id count; do
-    sqlite3 $TEMP_DB "UPDATE adlist SET total_domains="${count}" WHERE id="${adlist_id}";"
-done
+
+# Table adlist is updated with total number of domains for each id (adlist)
+# Since commit 73963fecda6dc65b10d1dd3e43a5931dc531304a to pihole's core, locally saved adlist copies contain the adlist_id in the filename.
+# We can use that to count the lines in each file and use the adlist_id to attribute it to the corresponding adlist in TEMP_DB
+# This is faster than to count the domains for each adlist from gravity_db
+# We use the new method only if the commit is found in the local git log to ensure that the new filename schema is used
+
+
+
+if git -C /etc/.pihole/ log |grep -q 73963fecda6dc65b10d1dd3e43a5931dc531304a; then
+        grep -c . /etc/pihole/list* |awk -F '[.:]' '{print $2 " "$NF}' | while read adlist_id count; do
+             sqlite3 $TEMP_DB "UPDATE adlist SET total_domains="${count}" WHERE id="${adlist_id}";"
+        done
+    else
+        sqlite3 -separator " " $GRAVITY "SELECT adlist_id,count(domain) FROM gravity GROUP BY adlist_id;" | while read adlist_id count; do
+            sqlite3 $TEMP_DB "UPDATE adlist SET total_domains="${count}" WHERE id="${adlist_id}";"
+        done
+fi
+
+
+
 
 
 # get some statistics
