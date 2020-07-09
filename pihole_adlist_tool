@@ -4,7 +4,7 @@
 TEMP_DB="/tmp/temp.db"
 PIHOLE_FTL="file:/etc/pihole/pihole-FTL.db?mode=ro"
 GRAVITY="file:/etc/pihole/gravity.db"
-PIHOLE_DIR="/etc/pihole/"
+
 
 #define and initialize variables
 declare -i DAYS_REQUESTED=30
