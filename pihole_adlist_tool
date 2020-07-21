@@ -86,6 +86,11 @@ set_dates () {
 }
 
 
+# removes temporary database
+remove_temp_database () {
+rm -f $TEMP_DB
+}
+
 ### warm-up ######
 
 
@@ -440,7 +445,7 @@ if [ "$UNIQUE" = 1 ];
         echo
         echo
 fi
-# removes temporary database
-rm $TEMP_DB
+
+remove_temp_database
 
 
