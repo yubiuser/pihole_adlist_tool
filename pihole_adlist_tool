@@ -91,8 +91,17 @@ remove_temp_database () {
 rm -f $TEMP_DB
 }
 
+# cleanup on trap
+cleanup_on_trap () {
+remove_temp_database
+echo -e "\\n\\n${bold}User-abort detected!${normal} Removing temporary database.\n" 
+exit 1
+}
+
 ### warm-up ######
 
+
+trap cleanup_on_trap INT
 
 # getopts flags and assing arguments to variables
 
