@@ -284,7 +284,7 @@ EOF
 
 
 
-if git -C /etc/.pihole/ log |grep -q 73963fecda6dc65b10d1dd3e43a5931dc531304a; then
+if git -C /etc/.pihole/ log 2> /dev/null |grep -q 73963fecda6dc65b10d1dd3e43a5931dc531304a; then
         grep -c . /etc/pihole/list* |awk -F '[.:]' '{print $2 " "$NF}' | while read adlist_id count; do
              sqlite3 $TEMP_DB "UPDATE adlist SET total_domains="${count}" WHERE id="${adlist_id}";"
         done
