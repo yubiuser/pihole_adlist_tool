@@ -157,6 +157,32 @@ echo
 
 
 
+# calculate various timestamps, converts them to dates
+set_timestamps
+set_dates
+
+# get FTL_ID based on $TIMESTAMP_REQUESTED
+FTL_ID=$(sqlite3 $PIHOLE_FTL "SELECT MIN(id) FROM queries WHERE timestamp>=$TIMESTAMP_REQUESTED;")
+
+
+
+# Print timestamp warnings
+if [ "$TIMESTAMP_REQUESTED" -gt "$TIMESTAMP_LAST_QUERY" ];
+    then
+        echo
+        echo "${bold}Warning:${normal} You requested to analyze "${DAYS_REQUESTED}" days (starting from "$DATE_REQUESTED"), but last query is from "$DATE_LAST_QUERY". Nothing to do here." 
+        echo
+        exit 0
+fi
+
+if [ "$TIMESTAMP_REQUESTED" -lt "$TIMESTAMP_FIRST_QUERY" ];
+    then 
+        echo
+        echo "${bold}Warning:${normal} You requested to analyze "${DAYS_REQUESTED}" days (starting from "$DATE_REQUESTED"), but oldest query is from "$DATE_FIRST_QUERY". Using this instead." 
+        echo
+fi
+
+
 # save old adlist_configuration 
 adlist_conf_old_enabled=(`sqlite3 $GRAVITY "select id from adlist where enabled=1;"`)
 
@@ -188,33 +214,6 @@ if [ "$menu_selection" -eq 2 ]; then
     echo
     echo
 fi
-
-
-# calculate various timestamps, converts them to dates
-set_timestamps
-set_dates
-
-# get FTL_ID based on $TIMESTAMP_REQUESTED
-FTL_ID=$(sqlite3 $PIHOLE_FTL "SELECT MIN(id) FROM queries WHERE timestamp>=$TIMESTAMP_REQUESTED;")
-
-
-
-# Print timestamp warnings
-if [ "$TIMESTAMP_REQUESTED" -gt "$TIMESTAMP_LAST_QUERY" ];
-    then
-        echo
-        echo "${bold}Warning:${normal} You requested to analyze "${DAYS_REQUESTED}" days (starting from "$DATE_REQUESTED"), but last query is from "$DATE_LAST_QUERY". Nothing to do here." 
-        echo
-        exit 0
-fi
-
-if [ "$TIMESTAMP_REQUESTED" -lt "$TIMESTAMP_FIRST_QUERY" ];
-    then 
-        echo
-        echo "${bold}Warning:${normal} You requested to analyze "${DAYS_REQUESTED}" days (starting from "$DATE_REQUESTED"), but oldest query is from "$DATE_FIRST_QUERY". Using this instead." 
-        echo
-fi
-
 
 echo
 echo
