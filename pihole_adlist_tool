@@ -35,6 +35,7 @@ declare -a adlist_conf_old_enabled
 declare -a adlist_conf_unique_enabled
 declare -i menu_selection
 NEW_ADLIST_FILENAME_SCHEMA=
+CNAME_AVAILABLE=
 
 #for text formating
 bold=$(tput bold)
@@ -196,6 +197,16 @@ if git -C /etc/.pihole/ log 2> /dev/null |grep -q 73963fecda6dc65b10d1dd3e43a593
     else
         NEW_ADLIST_FILENAME_SCHEMA=0
         echo -e "  [i]  NEW_ADLIST_FILENAME_SCHEMA: no"
+fi
+
+
+# does the query database contain the additional info for deep CNAME inspection
+if sqlite3 ${PIHOLE_FTL} "PRAGMA table_info(queries);" |grep -q additional_info ;then
+        CNAME_AVAILABLE=1
+        echo -e "[i]  CNAME_AVAILABLE: deep CNAME info available"
+    else
+        CNAME_AVAILABLE=0
+        echo -e "[i]  CNAME_AVAILABLE: deep CNAME info not available"
 fi
 
 echo -e "\n   ++++++++++++++++++++++\n\n"
