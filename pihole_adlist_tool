@@ -2,8 +2,9 @@
 
 # define path to pihole's databases and temporary database
 TEMP_DB="/tmp/temp.db"
-PIHOLE_FTL="file:/etc/pihole/pihole-FTL.db?mode=ro"
-GRAVITY="file:/etc/pihole/gravity.db"
+PIHOLE_ROOT="/etc/pihole"
+PIHOLE_FTL="file:$PIHOLE_ROOT/pihole-FTL.db?mode=ro"
+GRAVITY="file:$PIHOLE_ROOT/gravity.db"
 
 
 #define and initialize variables
