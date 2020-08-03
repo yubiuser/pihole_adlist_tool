@@ -42,14 +42,20 @@ normal=$(tput sgr0)
 
 # help message
 print_help() {
-  echo "Usage: pihole_adlist_tool [options]
+    echo  
+    echo "  Usage: pihole_adlist_tool [options]
     
     Options:
-    -d [Num]                         Consider the last [Num] days (Default: 30). Enter 0 for all-time analysis.
-    -t [Num]                         Show top blocked domains. [Num] defines the number to show.
-    -s [total/covered/hits/unique]   Set sorting order to total (total domains), covered (domains covered), hits (hits covered) or unique (covered unique domains) DESC. (Default sorting: id ASC)
-    -u                               Show covered unique domains
-    -h                               Show this help dialog
+        -d [Num]                         Consider the last [Num] days (Default: 30). Enter 0 for all-time analysis.
+
+        -t [Num]                         Show top blocked domains. [Num] defines the number to show.
+
+        -s [total/covered/hits/unique]   Set sorting order to total (total domains), covered (domains covered), hits (hits covered) or
+                                         unique (covered unique domains) DESC. (Default sorting: id ASC)
+
+        -u                               Show covered unique domains
+    
+        -h                               Show this help dialog
 "
 }
 
@@ -91,14 +97,14 @@ set_dates () {
 # removes temporary database
 remove_temp_database () {
 echo
-echo -e "[i]  Removing temporary database..." 
+echo -e "  [i]  Removing temporary database..." 
 rm -f $TEMP_DB
-echo -e "[✓]  Temporary database removed\n"
+echo -e "  [✓]  Temporary database removed\n"
 }
 
 # cleanup on trap
 cleanup_on_trap () {
-echo -e "\n\n[✗]  ${bold}User-abort detected!${normal}"
+echo -e "\n\n  [✗]  ${bold}User-abort detected!${normal}"
 remove_temp_database
 exit 1
 }
@@ -124,7 +130,7 @@ done
 
 warm_up() {
 
-echo -e "\n ++++++++ Info ++++++++\n"
+echo -e "\n   ++++++++ Info ++++++++\n"
 
 # exit if $DAYS_REQUESTED is no digit
 case "$DAYS_REQUESTED" in
@@ -138,15 +144,15 @@ esac
 
 if [ "$DAYS_REQUESTED" = 0 ];
     then
-        echo -e "[i]  DAYS_REQUESTED: all time"
+        echo -e "  [i]  DAYS_REQUESTED: all time"
     else
-        echo -e "[i]  DAYS_REQUESTED: $DAYS_REQUESTED"
+        echo -e "  [i]  DAYS_REQUESTED: $DAYS_REQUESTED"
 fi 
 
 # exit if $TOP is no digit
 case "$TOP" in
     ''|*[0-9]*)     
-          echo -e "[i]  TOP: $TOP top blocked domains will be displayed";;
+          echo -e "  [i]  TOP: $TOP top blocked domains will be displayed";;
     *) print_help
         exit 1 ;;
 esac
@@ -156,35 +162,35 @@ esac
 
 case "$SORT" in
     total)      SORT_ORDER="total_domains DESC" 
-                echo -e "[i]  SORT_ORDER: total_domains DESC";;
+                echo -e "  [i]  SORT_ORDER: total_domains DESC";;
     domains)    SORT_ORDER="domains_covered DESC" 
-                echo -e "[i]  SORT_ORDER: domains_covered DESC";;
+                echo -e "  [i]  SORT_ORDER: domains_covered DESC";;
     hits)       SORT_ORDER="hits_covered DESC" 
-                echo -e "[i]  SORT_ORDER: hits_covered DESC";;
+                echo -e "  [i]  SORT_ORDER: hits_covered DESC";;
     unique)     SORT_ORDER="unique_domains_covered DESC" 
-                echo -e "[i]  SORT_ORDER: unique_domains_covered DESC";;
+                echo -e "  [i]  SORT_ORDER: unique_domains_covered DESC";;
     *)          SORT_ORDER="id ASC" 
-                echo -e "[i]  SORT_ORDER: id ASC";;
+                echo -e "  [i]  SORT_ORDER: id ASC";;
 esac
 
 # print if unique covered domains should be shown
 if [ "$UNIQUE" -eq 1 ]; 
     then 
-        echo -e "[i]  UNIQUE: unique covered domains will be shown"
+        echo -e "  [i]  UNIQUE: unique covered domains will be shown"
     else
-        echo -e "[i]  UNIQUE: unique covered domains will not be shown"
+        echo -e "  [i]  UNIQUE: unique covered domains will not be shown"
 fi       
 
 # Is the new adlist filename schema used
 if git -C /etc/.pihole/ log 2> /dev/null |grep -q 73963fecda6dc65b10d1dd3e43a5931dc531304a; then
         NEW_ADLIST_FILENAME_SCHEMA=1
-        echo -e "[i]  NEW_ADLIST_FILENAME_SCHEMA: yes"
+        echo -e "  [i]  NEW_ADLIST_FILENAME_SCHEMA: yes"
     else
         NEW_ADLIST_FILENAME_SCHEMA=0
-        echo -e "[i]  NEW_ADLIST_FILENAME_SCHEMA: no"
+        echo -e "  [i]  NEW_ADLIST_FILENAME_SCHEMA: no"
 fi
 
-echo -e "\n ++++++++++++++++++++++\n\n"
+echo -e "\n   ++++++++++++++++++++++\n\n"
 }
 
 
@@ -194,7 +200,7 @@ echo -e "\n ++++++++++++++++++++++\n\n"
 
 echo
 echo
-echo "    ${bold}*** Pihole Adlist Tool ***${normal}"
+echo "  ${bold}*** Pihole Adlist Tool ***${normal}"
 echo
 
 warm_up
@@ -214,8 +220,9 @@ FTL_ID=$(sqlite3 $PIHOLE_FTL "SELECT MIN(id) FROM queries WHERE timestamp>=$TIME
 if [ "$TIMESTAMP_REQUESTED" -gt "$TIMESTAMP_LAST_QUERY" ];
     then
         echo
-        echo "[i]  ${bold}Warning:${normal} You requested to analyze the last "${DAYS_REQUESTED}" day(s) (starting from "$DATE_REQUESTED"), but last query is from "$DATE_LAST_QUERY""
-        echo "[i]  Nothing to do here. Exiting " 
+        echo "  [i]  ${bold}Warning:${normal} You requested to analyze the last "${DAYS_REQUESTED}" day(s) (starting from "$DATE_REQUESTED")," 
+        echo "       but last query is from "$DATE_LAST_QUERY""
+        echo "  [i]  Nothing to do here. Exiting " 
         echo
         exit 0
 fi
@@ -223,7 +230,8 @@ fi
 if [ "$TIMESTAMP_REQUESTED" -lt "$TIMESTAMP_FIRST_QUERY" ];
     then 
         echo
-        echo -e "[i]  ${bold}Warning:${normal} You requested to analyze the last "${DAYS_REQUESTED}" days (starting from "$DATE_REQUESTED"), but oldest query is from "$DATE_FIRST_QUERY". Using this instead\n" 
+        echo -e "  [i]  ${bold}Warning:${normal} You requested to analyze the last "${DAYS_REQUESTED}" days (starting from "$DATE_REQUESTED"),"
+        echo -e "       but oldest query is from "$DATE_FIRST_QUERY". Using this instead\n" 
         echo
 fi
 
@@ -231,34 +239,34 @@ fi
 # save old adlist_configuration 
 adlist_conf_old_enabled=(`sqlite3 $GRAVITY "select id from adlist where enabled=1;"`)
 
-echo "Would you like to analyze your current adlist configuration or first enable all adlists (current can be restored later)?"
+echo "  Would you like to analyze your current adlist configuration or first enable all adlists (current can be restored later)?"
 echo
-echo "1)  Current adlist configuration" 
-echo "2)  Enable all adlists (runs pihole -g)"
+echo "  1)  Current adlist configuration" 
+echo "  2)  Enable all adlists (runs pihole -g)"
 echo
 
 while [[ $menu_selection != [12] ]]; do
-  read -p "Please select: " menu_selection
+  read -p "  Please select: " menu_selection
 done
 echo
 echo
 
 if [ "$menu_selection" -eq 1 ]; then
-    echo "[i]  Keeping current adlist configuration"
+    echo "  [i]  Keeping current adlist configuration"
 fi
 
 
 if [ "$menu_selection" -eq 2 ]; then
 
-    echo "[i]  Enabling all adlists...."
+    echo "  [i]  Enabling all adlists...."
     sudo sqlite3 $GRAVITY "UPDATE adlist SET enabled=1;"
     echo
     echo
-    echo "[i]  Starting gravity"
+    echo "  [i]  Starting gravity"
     echo
     pihole -g
     echo 
-    echo "[✓]  Gravity update finished"
+    echo "  [✓]  Gravity update finished"
     echo
     echo
     echo
@@ -267,8 +275,8 @@ fi
 
 echo
 echo
-echo "[i]  Calculating....."
-echo "[i]  This might take some time - please be patient."
+echo "  [i]  Calculating....."
+echo "  [i]  This might take some time - please be patient."
 #
 #
 #
@@ -359,34 +367,34 @@ NUM_TOTAL_UNIQUE_DOMAINS=$(sqlite3 $TEMP_DB "SELECT COUNT(*) FROM unique_domains
 
 
 echo
-echo "[i]  You have ${bold}"$NUM_ADLISTS" adlists${normal} configured ("$NUM_ADLISTS_ENABLED" enabled)" 
-echo "[i]  Your gravity.db contains ${bold}"$NUM_GRAVITY_UNIQUE_DOMAINS" unique domains${normal}"
-echo "[i]  Since "$DATE_FIRST_ANALYZED" ${bold}"$NUM_DOMAINS_BLOCKED" different domains${normal} from your adlists have been blocked ${bold}"$HITS_TOTAL" times${normal} in total"
-echo "[i]  Using you current adlist configuration ${bold}"$NUM_DOMAINS_BLOCKED_CURRENT" domains${normal} would have been blocked ${bold}"$HITS_TOTAL_CURRENT" times${normal}"
+echo "  [i]  You have ${bold}"$NUM_ADLISTS" adlists${normal} configured ("$NUM_ADLISTS_ENABLED" enabled)" 
+echo "  [i]  Your gravity.db contains ${bold}"$NUM_GRAVITY_UNIQUE_DOMAINS" unique domains${normal}"
+echo "  [i]  Since "$DATE_FIRST_ANALYZED" ${bold}"$NUM_DOMAINS_BLOCKED" different domains${normal} from your adlists have been blocked ${bold}"$HITS_TOTAL" times${normal} in total"
+echo "  [i]  Using you current adlist configuration ${bold}"$NUM_DOMAINS_BLOCKED_CURRENT" domains${normal} would have been blocked ${bold}"$HITS_TOTAL_CURRENT" times${normal}"
 echo
 echo
 echo
-read -p "Press enter to continue..."
+read -p "  Press enter to continue..."
 
 if [ "$BLACKLIST_GRAVITY" -ne 0 ]; then
     echo
     echo
-    echo "[i]  ${bold}You hit a special case${normal}" 
-    echo "     Your personal blacklist contains at least one domain that is also on an adlist" 
-    echo "     and has been requested in the selected time period. If pihole blocked it"
-    echo "     (because blacklist was enabled at the time of the request) it got a special" 
-    echo "     status ('blocked by blacklist' instead of 'blocked by gravity') and is NOT counted"
-    echo "     on the above number of blocked domains/hits. As the domain is on an" 
-    echo "     adlist the number of potentially blocked domains/hits is therefore is higher."
+    echo "  [i]  ${bold}You hit a special case${normal}" 
+    echo "       Your personal blacklist contains at least one domain that is also on an adlist" 
+    echo "       and has been requested in the selected time period. If pihole blocked it"
+    echo "       (because blacklist was enabled at the time of the request) it got a special" 
+    echo "       status ('blocked by blacklist' instead of 'blocked by gravity') and is NOT counted"
+    echo "       on the above number of blocked domains/hits. As the domain is on an" 
+    echo "       adlist the number of potentially blocked domains/hits is therefore is higher."
     echo
     echo
     sqlite3 -column -header $TEMP_DB "SELECT * FROM blacklist_gravity"
     echo
-    echo "[i]  Use 'pihole -q DOMAIN' to see which adlist(s) contains the requested domain"
+    echo "  [i]  Use 'pihole -q DOMAIN' to see which adlist(s) contains the requested domain"
     echo
     echo
     echo
-    read -p "Press enter to continue..."
+    read -p "  Press enter to continue..."
 fi
 
 
@@ -396,22 +404,22 @@ echo
 if [ "$TOP" = 0 ]; then :
     else
         echo 
-        echo "[i]  ${bold}Top blocked adlist domains${normal}"
-        echo "     Those would have been the ${bold}"$TOP" top blocked adlist domains${normal} since "$DATE_FIRST_ANALYZED""
-        echo "     using your current adlist configuration"
+        echo "  [i]  ${bold}Top blocked adlist domains${normal}"
+        echo "       Those would have been the ${bold}"$TOP" top blocked adlist domains${normal} since "$DATE_FIRST_ANALYZED""
+        echo "       using your current adlist configuration"
         echo
         sqlite3 -column -header $TEMP_DB "SELECT domain, hits FROM blocked_domains LIMIT "${TOP}";"
         echo
         echo
         echo
         echo
-        read -p "Press enter to continue..."
+        read -p "  Press enter to continue..."
 fi
     
 echo
 echo
 
-echo "[i]  ${bold}Adlist coverage${normal}"
+echo "  [i]  ${bold}Adlist coverage${normal}"
 echo
 echo
 
@@ -421,13 +429,13 @@ sqlite3 -column -header $TEMP_DB "SELECT id, enabled, total_domains, domains_cov
 echo
 echo
 echo
-echo "[i]  Domains from disabled adlists are not stored in gravity's database." 
-echo "     If you want to include them in the analysis, run this script again and select 'Enable all adlists'"
-echo "     As the same domains usually appears on more than one adlist the sum of covered domains from this table is greater "
-echo "     than the number of calculated blocked domains shown above"
+echo "  [i]  Domains from disabled adlists are not stored in gravity's database." 
+echo "       If you want to include them in the analysis, run this script again and select 'Enable all adlists'"
+echo "       As the same domains usually appears on more than one adlist the sum of covered domains from this table is greater "
+echo "       than the number of calculated blocked domains shown above"
 echo
 echo
-echo "[i]  In total your adlists contain ${bold}"$NUM_TOTAL_UNIQUE_DOMAINS" visited (covered) unique domains${normal} - meaning those domains are contained only in a single adlist. "
+echo "  [i]  In total your adlists contain ${bold}"$NUM_TOTAL_UNIQUE_DOMAINS" visited (covered) unique domains${normal} - meaning those domains are contained only in a single adlist. "
 echo
 echo
 
@@ -438,59 +446,59 @@ adlist_conf_unique_enabled=(`sqlite3 $TEMP_DB "select id from adlist where uniqu
 if [ "$menu_selection" -eq 1 ]; 
     then
         menu_selection=
-        echo "Would you like to keept your adlist configurartion, or keep only adlists enabled with at least one unique covered domain?"
+        echo "  Would you like to keept your adlist configurartion, or keep only adlists enabled with at least one unique covered domain?"
         echo
-        echo "1)  Keep adlist configuration" 
-        echo "2)  Enable only adlists with covered unique domains"
+        echo "  1)  Keep adlist configuration" 
+        echo "  2)  Enable only adlists with covered unique domains"
         echo
         while [[ $menu_selection != [12] ]]; do
-          read -p "Please select: " menu_selection
+          read -p "  Please select: " menu_selection
         done
         if [ "$menu_selection" -eq 1 ]; then
             echo            
-            echo "[i] Keeping current adlist configuration"
+            echo "  [i] Keeping current adlist configuration"
         fi
 
     else
         menu_selection=
-        echo "Would you like to keep all adlists enabled, keep only adlists enabled with at least one unique covered domain, or revert to your previous adlist configurartion?"
+        echo "  Would you like to keep all adlists enabled, keep only adlists enabled with at least one unique covered domain, or revert to your previous adlist configurartion?"
         echo
-        echo "1)  Keep all adlists enabled" 
-        echo "2)  Enable only adlists with covered unique domains"
-        echo "3)  Restore previous adlist configuration"
+        echo "  1)  Keep all adlists enabled" 
+        echo "  2)  Enable only adlists with covered unique domains"
+        echo "  3)  Restore previous adlist configuration"
         echo
         while [[ $menu_selection != [123] ]]; do
-          read -p "Please select: " menu_selection
+          read -p "  Please select: " menu_selection
         done
         if [ "$menu_selection" -eq 1 ]; then
             echo            
-            echo "[i] Keeping all adlists enabled"
+            echo "  [i] Keeping all adlists enabled"
         fi
 fi
 
 if [ "$menu_selection" -eq 2 ]; then
     
-    echo "[i]  Enabling adlists with covered unique domains...."
+    echo "  [i]  Enabling adlists with covered unique domains...."
     sudo sqlite3 $GRAVITY "UPDATE adlist SET enabled=0;"
     for adlist_id in "${adlist_conf_unique_enabled[@]}"; do
        sudo  sqlite3 $GRAVITY "UPDATE adlist SET enabled=1 where id=$adlist_id;"
     done
     pihole restartdns reload-lists    
     echo
-    echo "[✓]  Adlists with covered unique domains enabled"
+    echo "  [✓]  Adlists with covered unique domains enabled"
     echo
 fi
 
 if [ "$menu_selection" -eq 3 ]; then
 
-    echo "[i]  Restoring previous adlist configuration...."
+    echo "  [i]  Restoring previous adlist configuration...."
     sudo sqlite3 $GRAVITY "UPDATE adlist SET enabled=0;"
     for adlist_id in "${adlist_conf_old_enabled[@]}"; do
        sudo sqlite3 $GRAVITY "UPDATE adlist SET enabled=1 where id=$adlist_id;"
     done
     pihole restartdns reload-lists    
     echo
-    echo "[✓]  Previous adlist configuration restored"
+    echo "  [✓]  Previous adlist configuration restored"
     echo
 fi
 
@@ -499,10 +507,10 @@ if [ "$UNIQUE" = 1 ];
     then 
         echo
         echo        
-        read -p "Press enter to continue (show covered unique domains)..."
+        read -p "  Press enter to continue (show covered unique domains)..."
         echo
         echo
-        echo "[i]  ${bold}Covered unique domains${normal}"
+        echo "  [i]  ${bold}Covered unique domains${normal}"
         echo
         sqlite3 -column -header $TEMP_DB "SELECT domain, adlist_id, address FROM unique_domains JOIN adlist WHERE adlist_id=id;"
         echo
