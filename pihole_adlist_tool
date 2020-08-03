@@ -8,7 +8,7 @@ GRAVITY="file:$PIHOLE_ROOT/gravity.db"
 
 
 #define and initialize variables
-declare -i DAYS_REQUESTED=30
+DAYS_REQUESTED=30
 declare -i TIMESTAMP_REQUESTED
 declare -i TIMESTAMP_FIRST_QUERY
 declare -i TIMESTAMP_LAST_QUERY
@@ -130,14 +130,22 @@ done
 
 warm_up() {
 
-echo -e "\n   ++++++++ Info ++++++++\n"
-
 # exit if $DAYS_REQUESTED is no digit
 case "$DAYS_REQUESTED" in
     ''|*[0-9]*) ;;
     *) print_help
         exit 1 ;;
 esac
+
+# exit if $TOP is no digit
+case "$TOP" in
+    ''|*[0-9]*) ;;         
+    *) print_help
+        exit 1 ;;
+esac
+
+
+echo -e "\n   ++++++++ Info ++++++++\n"
 
 
 # print number of requested days
@@ -149,17 +157,17 @@ if [ "$DAYS_REQUESTED" = 0 ];
         echo -e "  [i]  DAYS_REQUESTED: $DAYS_REQUESTED"
 fi 
 
-# exit if $TOP is no digit
-case "$TOP" in
-    ''|*[0-9]*)     
-          echo -e "  [i]  TOP: $TOP top blocked domains will be displayed";;
-    *) print_help
-        exit 1 ;;
-esac
+# print number of requested top blocked domains
+if [ "$TOP" = 0 ];
+    then
+        echo -e "  [i]  TOP: Not shown"
+    else
+        echo -e "  [i]  TOP: $TOP top blocked domains"
+fi 
+
 
 
 # set sort order for adlist table based on $SORT
-
 case "$SORT" in
     total)      SORT_ORDER="total_domains DESC" 
                 echo -e "  [i]  SORT_ORDER: total_domains DESC";;
@@ -176,9 +184,9 @@ esac
 # print if unique covered domains should be shown
 if [ "$UNIQUE" -eq 1 ]; 
     then 
-        echo -e "  [i]  UNIQUE: unique covered domains will be shown"
+        echo -e "  [i]  UNIQUE: Shown"
     else
-        echo -e "  [i]  UNIQUE: unique covered domains will not be shown"
+        echo -e "  [i]  UNIQUE: Not shown"
 fi       
 
 # Is the new adlist filename schema used
