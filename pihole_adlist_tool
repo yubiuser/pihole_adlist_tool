@@ -36,6 +36,8 @@ declare -a adlist_conf_unique_enabled
 declare -i menu_selection
 NEW_ADLIST_FILENAME_SCHEMA=
 CNAME_AVAILABLE=
+BLACKLIST_CNAME=
+SQLITE_VERSION=
 
 #for text formating
 bold=$(tput bold)
@@ -150,7 +152,6 @@ echo -e "\n   ++++++++ Info ++++++++\n"
 
 
 # print number of requested days
-
 if [ "$DAYS_REQUESTED" = 0 ];
     then
         echo -e "  [i]  DAYS_REQUESTED: all time"
@@ -203,11 +204,16 @@ fi
 # does the query database contain the additional info for deep CNAME inspection
 if sqlite3 ${PIHOLE_FTL} "PRAGMA table_info(queries);" |grep -q additional_info ;then
         CNAME_AVAILABLE=1
-        echo -e "[i]  CNAME_AVAILABLE: deep CNAME info available"
+        echo -e "  [i]  CNAME_AVAILABLE: deep CNAME info available"
     else
         CNAME_AVAILABLE=0
-        echo -e "[i]  CNAME_AVAILABLE: deep CNAME info not available"
+        echo -e "  [i]  CNAME_AVAILABLE: deep CNAME info not available"
 fi
+
+
+# get and print SQLite version
+SQLITE_VERSION=$(sqlite3 --version|awk '{print $1}')
+echo -e "  [i]  SQLITE_VERSION: $SQLITE_VERSION"
 
 echo -e "\n   ++++++++++++++++++++++\n\n"
 }
@@ -291,7 +297,12 @@ if [ "$menu_selection" -eq 2 ]; then
     echo
 fi
 
-
+# if sqlite3 version <3.24.0, deactivate CNAME analysis, as at least this version is needed for UPSERT sql syntax in CNAME analysis
+if [ "$(printf '%s\n' "3.24.0" "$SQLITE_VERSION" | sort -V | head -n1)" = "3.24.0" ] && [ "$CNAME_AVAILABLE" = 1 ]; then :
+ else
+        echo -e "\n  [i]  CNAME info availabe but SQLite version < 3.24.0. Deactivating CNAME analysis\n"
+        CNAME_AVAILABLE=0
+fi
 echo
 echo
 echo "  [i]  Calculating....."
@@ -300,52 +311,107 @@ echo "  [i]  This might take some time - please be patient."
 #
 #
 
-# Database manipulation
+# Database manipulation 
 # To analyze the data this tool creates a temporary database using data provided by pihole-ftl.db and gravity.db
 # timeout is set to 5000 ms in which sqlite tries to open an locked database
 #
 #
-# table blocked_domains selects all domains from pihole-ftl.db that that are also found in gravity.db. Depending on -d n this is limited to the last n days (gets all domains that would have been blocked)
-# table adlist copies id, enable, address from gravity.adlist
-# 
-# table gravity_strip selects all domains and adlist_ids from gravitiy.db for which it finds corresponding domains in blocked_domains table (strips gravity to domains which could have been blocked)
-# table blacklist_gravity contains all domains that are on the blacklist and also found in an adlist (aka gravity_strip)
+# table blocked_domains contains all domains that would have been blocked
+# table adlist contauns the info about all adlists and how many domains, hits, unique domains it contains
+# table gravity_strip is a stripped version of the gravity database's gravity table which contains only domains that have been visited
+# table blacklist_gravity contains all domains that are on the personal blacklist and also in gravity_strip
+# table unique_domains contains all domains from gravity_strip that are found just on one adlist
+# table cname contains all domains that have been blocked during deep CNAME inspection (not the requested domain, but the acutal blocked domain)
+# table blacklist_cname contains all domains that are on the personal blacklist and also in cname
 
-# table unique_domains contains all domains from gravity_strip that are found just on one adlist (covered unique domains)
-# table adlist is updated with the sum of domains for each id it finds a corresponding id in gravity_strip (counts how many domains this adlist whould have covered if used alone)
-# table adlist is updated with the sum of hits for all domains for each id when it finds a corresponding id in gravity_strip (counts how many hits this adlist whould have covered if used alone)
-# table adlist is updated with the number of unique_domains for each adlist id (number of unique domains covered by each adlist)
-# table blacklist_gravity is updated with the number of hits for each domain found in blocked_domains
 
-sqlite3 -cmd ".timeout 5000" $TEMP_DB << EOF
-    create table blocked_domains (domain TEXT,hits INTEGER);
+# create $TEMP_DB
+sqlite3 $TEMP_DB << EOF
+    create table blocked_domains (domain TEXT UNIQUE,hits INTEGER);
     create table adlist (id INTEGER, enabled INTEGER, address TEXT, total_domains INTEGER, domains_covered INTEGER, hits_covered INTEGER, unique_domains_covered INTEGER);
     create table gravity_strip (domain TEXT,adlist_id INTEGER);
     create table blacklist_gravity(domain TEXT, hits INTEGER);
     create table unique_domains(domain TEXT, adlist_id INTEGER);
-    
+    create table cname(additional_info TEXT,hits INTEGER);
+    create table blacklist_cname(domain TEXT, hits INTEGER);
+.exit
+EOF
+
+
+
+# get all data from $PIHOLE_FTL and $GRAVITY
+
+# 1.) select all domains from pihole-ftl.db that that are also found in gravity.db. Depending on -d n this is limited to the last n days 
+# 2.) copies id, enable, address from gravity.adlist to table adlist
+# 3.) strip gravity's gravity table to domains that have been visited (are in blocked_domains table)
+# 4.) select all domains that are on the blacklist and also found in gravity_strip
+# 5.) update blacklist_gravity with the number of hits for each domain (must be done before CNAME handling, as this adds hits to domains found during CNAME instection) 
+
+sqlite3 -cmd ".timeout 5000" $TEMP_DB << EOF
     ATTACH DATABASE "${PIHOLE_FTL}" AS pihole_ftl_db;
     ATTACH DATABASE "${GRAVITY}?mode=ro" AS gravity_db;
 
     INSERT INTO blocked_domains(domain, hits) SELECT domain, COUNT(domain) FROM pihole_ftl_db.queries WHERE EXISTS (select 1 from gravity_db.gravity where gravity.domain=queries.domain) AND id>=${FTL_ID} GROUP BY domain ORDER BY COUNT(domain) DESC;
     
-
     INSERT INTO adlist (id, enabled, address) SELECT id, enabled, address FROM gravity_db.adlist ORDER BY adlist.id; 
     
     INSERT INTO gravity_strip(domain,adlist_id) SELECT gravity_db.gravity.domain, gravity_db.gravity.adlist_id FROM gravity JOIN blocked_domains ON blocked_domains.domain = gravity.domain;
+    
     INSERT INTO blacklist_gravity(domain) SELECT gravity_strip.domain FROM gravity_strip JOIN gravity_db.domainlist on gravity_strip.domain=gravity_db.domainlist.domain WHERE type==1 GROUP BY gravity_strip.domain;
 
-    
-    
-    
-    INSERT INTO unique_domains(domain, adlist_id) SELECT domain, adlist_id FROM gravity_strip GROUP BY domain HAVING COUNT(domain)==1 order by adlist_id asc;
-    UPDATE adlist SET domains_covered=(select count(domain) FROM gravity_strip WHERE id== adlist_id GROUP BY adlist_id);
-    UPDATE adlist SET hits_covered=(SELECT SUM(blocked_domains.hits) FROM gravity_strip JOIN blocked_domains ON gravity_strip.domain == blocked_domains.domain WHERE id== adlist_id Group by adlist_id);
-    UPDATE adlist SET unique_domains_covered=(SELECT COUNT(domain) FROM unique_domains WHERE adlist_id==id GROUP BY adlist_id);
     UPDATE blacklist_gravity SET hits=(SELECT blocked_domains.hits FROM blocked_domains WHERE blocked_domains.domain=blacklist_gravity.domain);
 
     DETACH DATABASE gravity_db;
     DETACH DATABASE pihole_ftl_db;
+.exit
+EOF
+
+# CNAME handling
+
+# onyl executed if CNAME_AVAILABE is still 1 (also after SQLite check)
+# 1.) table cname selects all domains from pihole-ftl.db (additional_info) that that are also found in gravity.db and have status=9. 
+#   (status=9 == "Domain contained in gravity database & Blocked during deep CNAME inspection". This is just being cautious, because "additional_info" might contain other domains in the future for purposes different than CNAME inspection)
+# 2.) add blocked domains (found by deep CNAME inspection) to gravity_strip
+# 3.) add domain and hits found during cname analysis to blocked_domains; if domain is already on the list, onyl update the hit counter
+#    (this is the critical step - "upsert" function was introduced frist in sqlite with 3.24)
+# 4.) select all domains that are on the blacklist and also found during deep CNAME inspection
+# 5.) update blacklist_cname with the number of hits for each domain
+
+if [ "$CNAME_AVAILABLE" = 1 ]; then
+    sqlite3 -cmd ".timeout 5000" $TEMP_DB << EOF
+        ATTACH DATABASE "${PIHOLE_FTL}" AS pihole_ftl_db;
+        ATTACH DATABASE "${GRAVITY}?mode=ro" AS gravity_db;
+
+        INSERT INTO cname(additional_info, hits) SELECT additional_info, COUNT(domain) FROM pihole_ftl_db.queries WHERE EXISTS (select 1 from gravity_db.gravity where gravity.domain=queries.additional_info) AND id>=${FTL_ID} AND status=9 GROUP BY additional_info ORDER BY COUNT(additional_info) DESC;
+        
+        INSERT OR IGNORE INTO gravity_strip(domain,adlist_id) SELECT gravity_db.gravity.domain, gravity_db.gravity.adlist_id FROM gravity JOIN cname ON cname.additional_info = gravity.domain;
+        
+        INSERT INTO blocked_domains (domain, hits) SELECT additional_info,hits FROM cname  WHERE true ON CONFLICT(domain) DO UPDATE SET hits=hits+(SELECT hits FROM cname);
+
+        INSERT INTO blacklist_cname(domain) SELECT cname.additional_info FROM cname JOIN gravity_db.domainlist on cname.additional_info=gravity_db.domainlist.domain WHERE type==1 GROUP BY cname.additional_info;
+
+        UPDATE blacklist_cname SET hits=(SELECT cname.hits FROM cname WHERE cname.additional_info=blacklist_cname.domain);
+
+        DETACH DATABASE gravity_db;
+        DETACH DATABASE pihole_ftl_db;
+.exit
+EOF
+fi
+   
+# finsih database work in $TEMP_DB
+#
+#
+# 1.) select all domains that are only once in gravity_strip (covered unique domains)
+# 2.) counts how many domains an adlist would have covered if used alone
+# 3.) counts how many hits an adlist would have covered if used alone
+# 4.) counts the number of unique domains covered by each adlist
+
+sqlite3 $TEMP_DB << EOF
+    INSERT INTO unique_domains(domain, adlist_id) SELECT domain, adlist_id FROM gravity_strip GROUP BY domain HAVING COUNT(domain)==1 order by adlist_id asc;
+    UPDATE adlist SET domains_covered=(select count(domain) FROM gravity_strip WHERE id== adlist_id GROUP BY adlist_id);
+    UPDATE adlist SET hits_covered=(SELECT SUM(blocked_domains.hits) FROM gravity_strip JOIN blocked_domains ON gravity_strip.domain == blocked_domains.domain WHERE id== adlist_id Group by adlist_id);
+    UPDATE adlist SET unique_domains_covered=(SELECT COUNT(domain) FROM unique_domains WHERE adlist_id==id GROUP BY adlist_id);
+
 .exit
 EOF
 
@@ -370,10 +436,14 @@ fi
 
 
 
-
-
 # get some statistics
-read NUM_DOMAINS_BLOCKED HITS_TOTAL <<<$(sqlite3 -separator " " $PIHOLE_FTL "SELECT COUNT(DISTINCT domain),count (domain) FROM queries WHERE id>=${FTL_ID} AND status == 1;")
+# depending on CNAME_AVAILABLE, the number of domains blocked and hits is the sum of enties with status 1 or (1 and 9)
+if [ "$CNAME_AVAILABLE" = 1 ]; then
+        read NUM_DOMAINS_BLOCKED HITS_TOTAL <<<$(sqlite3 -separator " " $PIHOLE_FTL "SELECT COUNT(DISTINCT domain),count(domain) FROM queries WHERE id>=${FTL_ID} AND status in (1,9);")
+    else
+        read NUM_DOMAINS_BLOCKED HITS_TOTAL <<<$(sqlite3 -separator " " $PIHOLE_FTL "SELECT COUNT(DISTINCT domain),count(domain) FROM queries WHERE id>=${FTL_ID} AND status == 1;")
+fi
+
 
 NUM_ADLISTS=$(sqlite3 $TEMP_DB "SELECT COUNT(id) FROM adlist;")
 NUM_ADLISTS_ENABLED=$(sqlite3 $TEMP_DB "SELECT COUNT(id) FROM adlist WHERE enabled==1;")
@@ -382,14 +452,24 @@ NUM_DOMAINS_BLOCKED_CURRENT=$(sqlite3 $TEMP_DB "SELECT COUNT(domain) FROM blocke
 HITS_TOTAL_CURRENT=$(sqlite3 $TEMP_DB "SELECT SUM(hits) FROM blocked_domains;")
 BLACKLIST_GRAVITY=$(sqlite3 $TEMP_DB "SELECT COUNT(*) FROM blacklist_gravity;")
 NUM_TOTAL_UNIQUE_DOMAINS=$(sqlite3 $TEMP_DB "SELECT COUNT(*) FROM unique_domains;")
+BLACKLIST_CNAME=$(sqlite3 $TEMP_DB "SELECT COUNT(*) FROM blacklist_cname;")
 
 
 
 echo
 echo "  [i]  You have ${bold}"$NUM_ADLISTS" adlists${normal} configured ("$NUM_ADLISTS_ENABLED" enabled)" 
 echo "  [i]  Your gravity.db contains ${bold}"$NUM_GRAVITY_UNIQUE_DOMAINS" unique domains${normal}"
-echo "  [i]  Since "$DATE_FIRST_ANALYZED" ${bold}"$NUM_DOMAINS_BLOCKED" different domains${normal} from your adlists have been blocked ${bold}"$HITS_TOTAL" times${normal} in total"
-echo "  [i]  Using you current adlist configuration ${bold}"$NUM_DOMAINS_BLOCKED_CURRENT" domains${normal} would have been blocked ${bold}"$HITS_TOTAL_CURRENT" times${normal}"
+
+if [ "$CNAME_AVAILABLE" = 1 ]; then
+        echo "  [i]  Since "$DATE_FIRST_ANALYZED" ${bold}"$NUM_DOMAINS_BLOCKED" different domains${normal} from your adlists have been blocked ${bold}"$HITS_TOTAL" times${normal} in total"
+        echo "       (blocked directly by gravity or during deep CNAME inspection)"
+        echo "  [i]  Using you current adlist configuration ${bold}"$NUM_DOMAINS_BLOCKED_CURRENT" domains${normal} would have been blocked ${bold}"$HITS_TOTAL_CURRENT" times${normal}"
+    else
+        echo "  [i]  Since "$DATE_FIRST_ANALYZED" ${bold}"$NUM_DOMAINS_BLOCKED" different domains${normal} from your adlists have been blocked ${bold}"$HITS_TOTAL" times${normal} in total"
+        echo "       (blocked by gravity only)"
+        echo "  [i]  Using you current adlist configuration ${bold}"$NUM_DOMAINS_BLOCKED_CURRENT" domains${normal} would have been blocked ${bold}"$HITS_TOTAL_CURRENT" times${normal}"
+fi
+
 echo
 echo
 echo
@@ -400,11 +480,10 @@ if [ "$BLACKLIST_GRAVITY" -ne 0 ]; then
     echo
     echo "  [i]  ${bold}You hit a special case${normal}" 
     echo "       Your personal blacklist contains at least one domain that is also on an adlist" 
-    echo "       and has been requested in the selected time period. If pihole blocked it"
-    echo "       (because blacklist was enabled at the time of the request) it got a special" 
-    echo "       status ('blocked by blacklist' instead of 'blocked by gravity') and is NOT counted"
-    echo "       on the above number of blocked domains/hits. As the domain is on an" 
-    echo "       adlist the number of potentially blocked domains/hits is therefore is higher."
+    echo "       and has been requested in the selected time period. If it was blocked by gravity,"
+    echo "       it got a special status ('blocked by blacklist' instead of 'blocked by gravity')" 
+    echo "       and is NOT counted on the above number of blocked domains/hits. As the domain is on an" 
+    echo "       adlist, the number of potentially blocked domains/hits is therefore higher."
     echo
     echo
     sqlite3 -column -header $TEMP_DB "SELECT * FROM blacklist_gravity"
@@ -415,6 +494,25 @@ if [ "$BLACKLIST_GRAVITY" -ne 0 ]; then
     echo
     read -p "  Press enter to continue..."
 fi
+
+if [ "$BLACKLIST_CNAME" -ne 0 ]; then
+    echo
+    echo
+    echo "  [i]  ${bold}You hit a special case${normal}" 
+    echo "       Your personal blacklist contains at least one domain that is also on an adlist" 
+    echo "       and has been blocked in the selected time period by deep CNAME inspection. It got a special" 
+    echo "       status ('blocked by blacklist during deep CNAME inspection' instead of 'blocked by gravity')" 
+    echo "       and is NOT counted on the above number of blocked domains/hits. As the domain is on an adlist," 
+    echo "       the number of potentially blocked domains/hits is therefore higher."
+    echo
+    echo
+    sqlite3 -column -header $TEMP_DB "SELECT * FROM blacklist_cname"
+    echo
+    echo
+    echo
+    read -p "  Press enter to continue..."
+fi
+
 
 
 echo
