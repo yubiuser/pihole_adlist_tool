@@ -8,7 +8,7 @@ This script tries to provide you with a bunch of information that enables you to
 
 -  the number of adlists (and how many are enabled)
 - the number of unique domains in your gravity.db
-- the number of blocked domains as reported by pihole ('blocking status == blocked by gravity') and how often those domains have been blocked ('hits')
+- the number of blocked domains as reported by pihole ('blocking status == blocked by gravity' or blocking status == blocked by gravity+blocked during CNAME inspection) and how often those domains have been blocked ('hits')
 - the number of covered domains and how often those would have been blocked ('hits')
 - special case: domains on your (personal) blacklist which are also on an adlist and have been visited in the past, including hits (run 'pihole -q' to see on which adlist those domains appear)
 - optional: top blocked domains and number of hits if your current adlist configuration would have been used
@@ -28,7 +28,7 @@ As domains usually appear on more then one adlist I introduce the concept of ***
 	- Whitelisted domains reduce the number of blocked domains as reported by pihole compared to the calculated numbers
 	-  Blacklisted domains increase the number of blocked domains as reported by pihole compared to the calculated numbers
 	
--  This tool can not deal with domains that have been blocked due to CNAME inspection because pihole doesn't store the actual blocked domain but the CNAME and a corresponding status ("Blocked during deep CNAME inspection"). This CNAME domain will not match a domain from an adlist - if it would it would have been blocked directly.
+-  ~~This tool can not deal with domains that have been blocked due to CNAME inspection because pihole doesn't store the actual blocked domain but the CNAME and a corresponding status ("Blocked during deep CNAME inspection"). This CNAME domain will not match a domain from an adlist - if it would it would have been blocked directly.~~ (see [PR #3](https://github.com/yubiuser/pihole_adlist_tool/pull/3))
 
 -  Other differences between the number of domains/hits as reported by pihole and calculated numbers are due to change in adlist configuration over time
 
