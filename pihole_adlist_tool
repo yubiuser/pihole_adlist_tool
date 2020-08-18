@@ -563,7 +563,7 @@ adlist_conf_unique_enabled=(`sqlite3 $TEMP_DB "select id from adlist where uniqu
 if [ "$menu_selection" -eq 1 ]; 
     then
         menu_selection=
-        echo "  Would you like to keept your adlist configurartion, or keep only adlists enabled with at least one unique covered domain?"
+        echo "  Would you like to keep your adlist configurartion, or keep only adlists enabled with at least one unique covered domain?"
         echo
         echo "  1)  Keep adlist configuration" 
         echo "  2)  Enable only adlists with covered unique domains"
