@@ -323,6 +323,7 @@ echo "  [i]  This might take some time - please be patient."
 # table unique_domains contains all domains from gravity_strip that are found just on one adlist
 # table cname contains all domains that have been blocked during deep CNAME inspection (not the requested domain, but the acutal blocked domain)
 # table blacklist_cname contains all domains that are on the personal blacklist and also in cname
+# table info contains various pre-calculated information
 
 
 # create $TEMP_DB
@@ -334,6 +335,7 @@ sqlite3 $TEMP_DB << EOF
     create table unique_domains(domain TEXT, adlist_id INTEGER);
     create table cname(additional_info TEXT,hits INTEGER);
     create table blacklist_cname(domain TEXT, hits INTEGER);
+    create table info (property TEXT, value INTEGER);
 .exit
 EOF
 
@@ -405,6 +407,7 @@ fi
 # 2.) counts how many domains an adlist would have covered if used alone
 # 3.) counts how many hits an adlist would have covered if used alone
 # 4.) counts the number of unique domains covered by each adlist
+# 5-11.) Calculate some statistics
 
 sqlite3 $TEMP_DB << EOF
     INSERT INTO unique_domains(domain, adlist_id) SELECT domain, adlist_id FROM gravity_strip GROUP BY domain HAVING COUNT(domain)==1 order by adlist_id asc;
@@ -412,6 +415,13 @@ sqlite3 $TEMP_DB << EOF
     UPDATE adlist SET hits_covered=(SELECT SUM(blocked_domains.hits) FROM gravity_strip JOIN blocked_domains ON gravity_strip.domain == blocked_domains.domain WHERE id== adlist_id Group by adlist_id);
     UPDATE adlist SET unique_domains_covered=(SELECT COUNT(domain) FROM unique_domains WHERE adlist_id==id GROUP BY adlist_id);
 
+    INSERT INTO info (property, value) Select 'NUM_ADLISTS', COUNT(id) FROM adlist; 
+    INSERT INTO info (property, value) Select 'NUM_ADLISTS_ENABLED', COUNT(id) FROM adlist WHERE enabled==1;
+    INSERT INTO info (property, value) Select 'NUM_DOMAINS_BLOCKED_CURRENT', COUNT(domain) FROM blocked_domains; 
+    INSERT INTO info (property, value) Select 'HITS_TOTAL_CURRENT', SUM(hits) FROM blocked_domains;
+    INSERT INTO info (property, value) Select 'BLACKLIST_GRAVITY', COUNT(*) FROM blacklist_gravity;
+    INSERT INTO info (property, value) Select 'NUM_TOTAL_UNIQUE_DOMAINS', COUNT(*) FROM unique_domains;
+    INSERT INTO info (property, value) Select 'BLACKLIST_CNAME', COUNT(*) FROM blacklist_cname;
 .exit
 EOF
 
@@ -445,15 +455,14 @@ if [ "$CNAME_AVAILABLE" = 1 ]; then
 fi
 
 
-NUM_ADLISTS=$(sqlite3 $TEMP_DB "SELECT COUNT(id) FROM adlist;")
-NUM_ADLISTS_ENABLED=$(sqlite3 $TEMP_DB "SELECT COUNT(id) FROM adlist WHERE enabled==1;")
+NUM_ADLISTS=$(sqlite3 $TEMP_DB "SELECT value FROM info where property='NUM_ADLISTS';")
+NUM_ADLISTS_ENABLED=$(sqlite3 $TEMP_DB "SELECT value FROM info where property='NUM_ADLISTS_ENABLED';")
+NUM_DOMAINS_BLOCKED_CURRENT=$(sqlite3 $TEMP_DB "SELECT value FROM info where property='NUM_DOMAINS_BLOCKED_CURRENT';")
+HITS_TOTAL_CURRENT=$(sqlite3 $TEMP_DB "SELECT value FROM info where property='HITS_TOTAL_CURRENT';")
+BLACKLIST_GRAVITY=$(sqlite3 $TEMP_DB "SELECT value FROM info where property='BLACKLIST_GRAVITY';")
+NUM_TOTAL_UNIQUE_DOMAINS=$(sqlite3 $TEMP_DB "SELECT value FROM info where property='NUM_TOTAL_UNIQUE_DOMAINS';")
+BLACKLIST_CNAME=$(sqlite3 $TEMP_DB "SELECT value FROM info where property='BLACKLIST_CNAME';")
 NUM_GRAVITY_UNIQUE_DOMAINS=$(sqlite3 $GRAVITY "SELECT value FROM info WHERE property == 'gravity_count';")
-NUM_DOMAINS_BLOCKED_CURRENT=$(sqlite3 $TEMP_DB "SELECT COUNT(domain) FROM blocked_domains;")
-HITS_TOTAL_CURRENT=$(sqlite3 $TEMP_DB "SELECT SUM(hits) FROM blocked_domains;")
-BLACKLIST_GRAVITY=$(sqlite3 $TEMP_DB "SELECT COUNT(*) FROM blacklist_gravity;")
-NUM_TOTAL_UNIQUE_DOMAINS=$(sqlite3 $TEMP_DB "SELECT COUNT(*) FROM unique_domains;")
-BLACKLIST_CNAME=$(sqlite3 $TEMP_DB "SELECT COUNT(*) FROM blacklist_cname;")
-
 
 
 echo
