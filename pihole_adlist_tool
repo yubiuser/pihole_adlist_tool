@@ -38,6 +38,7 @@ NEW_ADLIST_FILENAME_SCHEMA=
 CNAME_AVAILABLE=
 BLACKLIST_CNAME=
 SQLITE_VERSION=
+NUM_DOMAINS_BLOCKED_FUTURE=
 
 #for text formating
 bold=$(tput bold)
@@ -96,6 +97,25 @@ set_dates () {
     
 }
 
+# calculates how many domains from gravity_strip are contained in all enabled adlists in gravity
+# this is useful in case users select to enable all adlist initally, but return to their previous adlist configuration 
+# which might not contain all domains that could have been blocked or only enable adlists with unique covered domains
+
+domains_blocked_future () {
+sqlite3 $TEMP_DB << EOF
+    ATTACH DATABASE "${GRAVITY}?mode=ro" AS gravity_db; 
+        INSERT INTO info (property, value) Select 'NUM_DOMAINS_BLOCKED_FUTURE', count(distinct gravity_strip.domain) from gravity_strip join gravity_db.gravity on gravity_strip.domain=gravity_db.gravity.domain Join gravity_db.adlist on gravity_db.gravity.adlist_id=gravity_db.adlist.id where enabled=1;
+    DETACH DATABASE gravity_db;
+.exit
+EOF
+
+NUM_DOMAINS_BLOCKED_FUTURE=$(sqlite3 $TEMP_DB "SELECT value FROM info where property='NUM_DOMAINS_BLOCKED_FUTURE';")
+
+echo
+echo "  [✓]  Of the ${bold}"$NUM_DOMAINS_BLOCKED_CURRENT"${normal} domains that would have been blocked by the adlist configuration you chose to analyze,"
+echo "       ${bold}"$NUM_DOMAINS_BLOCKED_FUTURE"${normal} domains are covered by your current adlist configuration."
+
+}
 
 # removes temporary database
 remove_temp_database () {
@@ -613,6 +633,7 @@ if [ "$menu_selection" -eq 2 ]; then
     echo
     echo "  [✓]  Adlists with covered unique domains enabled"
     echo
+    domains_blocked_future
 fi
 
 if [ "$menu_selection" -eq 3 ]; then
@@ -626,6 +647,7 @@ if [ "$menu_selection" -eq 3 ]; then
     echo
     echo "  [✓]  Previous adlist configuration restored"
     echo
+    domains_blocked_future
 fi
 
 
