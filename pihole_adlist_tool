@@ -39,6 +39,9 @@ CNAME_AVAILABLE=
 BLACKLIST_CNAME=
 SQLITE_VERSION=
 NUM_DOMAINS_BLOCKED_FUTURE=
+declare -a adlist_enabled_in_gravity
+declare -i run_gravity_now
+
 
 #for text formating
 bold=$(tput bold)
@@ -298,6 +301,46 @@ echo
 
 if [ "$menu_selection" -eq 1 ]; then
     echo "  [i]  Keeping current adlist configuration"
+
+
+    # check if a mismatch between enabled adlists and data in gravity exists, offer to run gravity
+    # https://stackoverflow.com/a/28161520
+    adlist_enabled_in_gravity=(`sqlite3 $GRAVITY "select distinct adlist_id from gravity;"`)
+    if [ -n "$(echo ${adlist_conf_old_enabled[@]} ${adlist_enabled_in_gravity[@]} | tr ' ' '\n' |sort |uniq -u)" ]; then
+
+        echo
+        echo "  [i]  There is a mismatch between your enabled adlists and the data found in the gravity database."
+        echo "       You have ${bold}"${#adlist_conf_old_enabled[@]}"${normal} adlists enabled, but data from ${bold}"${#adlist_enabled_in_gravity[@]}"${normal} (patially different) adlists in your gravity database."
+        echo "       You're likely disabled/enabled adlist without running gravity afterwards."
+        echo "       It's highly recommended to run gravity now to solve the differences, otherwise this tool will analyze the available data."
+        echo
+        echo
+        echo "  Would you like to run gravity now?"
+        echo
+        echo "  1)  Yes"
+        echo "  2)  No"
+        echo
+
+        while [[ $run_gravity_now != [12] ]]; do
+            read -p "  Please select: " run_gravity_now
+        done
+        if [ "$run_gravity_now" -eq 1 ]; then
+                echo
+                echo
+                echo "  [i]  Starting gravity"
+                echo
+                pihole -g
+                echo
+                echo "  [✓]  Gravity update finished"
+                echo
+                echo
+                echo
+            else
+                echo
+                echo
+                echo "  [i]  Not running gravity, keeping mismatch between enabled adlists and the data found in the gravity database. "
+        fi
+    fi
 fi
 
 
@@ -368,6 +411,10 @@ EOF
 # 3.) strip gravity's gravity table to domains that have been visited (are in blocked_domains table)
 # 4.) select all domains that are on the blacklist and also found in gravity_strip
 # 5.) update blacklist_gravity with the number of hits for each domain (must be done before CNAME handling, as this adds hits to domains found during CNAME instection) 
+
+
+
+
 
 sqlite3 -cmd ".timeout 5000" $TEMP_DB << EOF
     ATTACH DATABASE "${PIHOLE_FTL}" AS pihole_ftl_db;
@@ -592,7 +639,7 @@ adlist_conf_unique_enabled=(`sqlite3 $TEMP_DB "select id from adlist where uniqu
 if [ "$menu_selection" -eq 1 ]; 
     then
         menu_selection=
-        echo "  Would you like to keep your adlist configurartion, or keep only adlists enabled with at least one unique covered domain?"
+        echo "  Would you like to keep your adlist configuration, or keep only adlists enabled with at least one unique covered domain?"
         echo
         echo "  1)  Keep adlist configuration" 
         echo "  2)  Enable only adlists with covered unique domains"
@@ -624,6 +671,7 @@ fi
 
 if [ "$menu_selection" -eq 2 ]; then
     
+    echo
     echo "  [i]  Enabling adlists with covered unique domains...."
     sudo sqlite3 $GRAVITY "UPDATE adlist SET enabled=0;"
     for adlist_id in "${adlist_conf_unique_enabled[@]}"; do
@@ -638,6 +686,7 @@ fi
 
 if [ "$menu_selection" -eq 3 ]; then
 
+    echo
     echo "  [i]  Restoring previous adlist configuration...."
     sudo sqlite3 $GRAVITY "UPDATE adlist SET enabled=0;"
     for adlist_id in "${adlist_conf_old_enabled[@]}"; do
@@ -649,6 +698,7 @@ if [ "$menu_selection" -eq 3 ]; then
     echo
     domains_blocked_future
 fi
+
 
 
 if [ "$UNIQUE" = 1 ];
