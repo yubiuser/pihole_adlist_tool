@@ -639,12 +639,13 @@ adlist_conf_unique_enabled=(`sqlite3 $TEMP_DB "select id from adlist where uniqu
 if [ "$menu_selection" -eq 1 ]; 
     then
         menu_selection=
-        echo "  Would you like to keep your adlist configuration, or keep only adlists enabled with at least one unique covered domain?"
+        echo "  Would you like to ... "
         echo
-        echo "  1)  Keep adlist configuration" 
+        echo "  1)  Keep your current adlist configuration" 
         echo "  2)  Enable only adlists with covered unique domains"
+        echo "  3)  Enable the minimal number of adlists that cover all domains that would have been blocked"
         echo
-        while [[ $menu_selection != [12] ]]; do
+        while [[ $menu_selection != [123] ]]; do
           read -p "  Please select: " menu_selection
         done
         if [ "$menu_selection" -eq 1 ]; then
@@ -654,13 +655,14 @@ if [ "$menu_selection" -eq 1 ];
 
     else
         menu_selection=
-        echo "  Would you like to keep all adlists enabled, keep only adlists enabled with at least one unique covered domain, or revert to your previous adlist configurartion?"
+        echo "  Would you like to ..."
         echo
         echo "  1)  Keep all adlists enabled" 
         echo "  2)  Enable only adlists with covered unique domains"
-        echo "  3)  Restore previous adlist configuration"
+        echo "  3)  Enable the minimal number of adlists that cover all domains that would have been blocked"
+        echo "  4)  Restore previous adlist configuration"
         echo
-        while [[ $menu_selection != [123] ]]; do
+        while [[ $menu_selection != [1234] ]]; do
           read -p "  Please select: " menu_selection
         done
         if [ "$menu_selection" -eq 1 ]; then
@@ -685,6 +687,22 @@ if [ "$menu_selection" -eq 2 ]; then
 fi
 
 if [ "$menu_selection" -eq 3 ]; then
+    
+    echo
+    echo "  [i]  Enabling minimum number of adlists that cover all domains that would have been blocked...."
+#    sudo sqlite3 $GRAVITY "UPDATE adlist SET enabled=0;"
+#    for adlist_id in "${adlist_conf_unique_enabled[@]}"; do
+#       sudo  sqlite3 $GRAVITY "UPDATE adlist SET enabled=1 where id=$adlist_id;"
+#    done
+#    pihole restartdns reload-lists    
+    echo
+    echo "  [✓]  Minimal number of adlists that cover all domains (that would have been blocked) enabled"
+    echo
+    domains_blocked_future
+fi
+
+
+if [ "$menu_selection" -eq 4 ]; then
 
     echo
     echo "  [i]  Restoring previous adlist configuration...."
