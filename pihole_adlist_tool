@@ -633,9 +633,6 @@ echo
 echo
 
 
-# save adlist unique_configuration 
-adlist_conf_unique_enabled=(`sqlite3 $TEMP_DB "select id from adlist where unique_domains_covered IS NOT NULL;"`)
-
 if [ "$menu_selection" -eq 1 ]; 
     then
         menu_selection=
@@ -676,6 +673,7 @@ if [ "$menu_selection" -eq 2 ]; then
     echo
     echo "  [i]  Enabling adlists with covered unique domains...."
     sudo sqlite3 $GRAVITY "UPDATE adlist SET enabled=0;"
+    adlist_conf_unique_enabled=(`sqlite3 $TEMP_DB "select id from adlist where unique_domains_covered IS NOT NULL;"`)
     for adlist_id in "${adlist_conf_unique_enabled[@]}"; do
        sudo  sqlite3 $GRAVITY "UPDATE adlist SET enabled=1 where id=$adlist_id;"
     done
