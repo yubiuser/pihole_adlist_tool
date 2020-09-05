@@ -41,6 +41,8 @@ SQLITE_VERSION=
 NUM_DOMAINS_BLOCKED_FUTURE=
 declare -a adlist_enabled_in_gravity
 declare -i run_gravity_now
+declare -a adlist_conf_minimal_enabled
+left_domains=
 
 
 #for text formating
@@ -688,11 +690,43 @@ if [ "$menu_selection" -eq 3 ]; then
     
     echo
     echo "  [i]  Enabling minimum number of adlists that cover all domains that would have been blocked...."
-#    sudo sqlite3 $GRAVITY "UPDATE adlist SET enabled=0;"
-#    for adlist_id in "${adlist_conf_unique_enabled[@]}"; do
-#       sudo  sqlite3 $GRAVITY "UPDATE adlist SET enabled=1 where id=$adlist_id;"
-#    done
-#    pihole restartdns reload-lists    
+    sudo sqlite3 $GRAVITY "UPDATE adlist SET enabled=0;"
+    
+    # get all adlist_ids with unique domains (same as $adlist_conf_unique_enabled)
+    # create a copy of gravity_strip where domains can be removed from (gravity_strip is used later again)
+    # delete all domains from gravity_dup that are also found on an adlist in the array with the unique domains
+    # repeat until gravity_dup is empty
+    #   get the adlist_id for which there are the most remaining domains on gravity_dup
+    #   add this adlist_id to the array
+    #   remove all domains from gravity_dup that are also contained in that adlist
+    #   count how many domains are still on gravity_dup
+    
+    adlist_conf_minimal_enabled=(`sqlite3 $TEMP_DB "select id from adlist where unique_domains_covered IS NOT NULL;"`)
+    
+    sqlite3 $TEMP_DB "CREATE TABLE gravity_dup AS SELECT * FROM gravity_strip"
+    
+    for adlist_id in "${adlist_conf_minimal_enabled[@]}"; do
+       sqlite3 $TEMP_DB "DELETE FROM gravity_dup WHERE domain IN (SELECT domain from gravity_dup where adlist_id=$adlist_id);"
+    done
+    
+    left_domains=(`sqlite3 $TEMP_DB "SELECT COUNT (domain) from gravity_dup;"`)
+    
+    while [[ $left_domains != [0] ]]; do
+        current_id=(`sqlite3 $TEMP_DB "Select adlist_id from gravity_dup group by adlist_id order by count (domain) desc, adlist_id asc limit 1;"`);
+    
+        adlist_conf_minimal_enabled[${#adlist_conf_minimal_enabled[@]}]="$current_id"
+        sqlite3 $TEMP_DB "DELETE FROM gravity_dup WHERE domain IN (SELECT domain from gravity_dup where adlist_id=$current_id);"
+        left_domains=(`sqlite3 $TEMP_DB "SELECT COUNT (domain) from gravity_dup;"`)  
+    done
+
+    echo "  [i]  Enabling adlists with id ${adlist_conf_minimal_enabled[@]}"
+
+    for adlist_id in "${adlist_conf_minimal_enabled[@]}"; do
+       sudo  sqlite3 $GRAVITY "UPDATE adlist SET enabled=1 where id=$adlist_id;"
+    done
+    
+    pihole restartdns reload-lists    
+   
     echo
     echo "  [✓]  Minimal number of adlists that cover all domains (that would have been blocked) enabled"
     echo
