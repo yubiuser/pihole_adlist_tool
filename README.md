@@ -43,7 +43,7 @@ On my [NanoPi NeoPlus2](http://wiki.friendlyarm.com/wiki/index.php/NanoPi_NEO_Pl
 ---
 **Requirements**
 
-- Pihole v5.0
+- Pi-hole FTL v5.5 (see [PR #13](https://github.com/yubiuser/pihole_adlist_tool/pull/13)) 
 
 ---
 ** Usage **
