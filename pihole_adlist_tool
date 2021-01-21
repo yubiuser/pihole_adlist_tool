@@ -43,6 +43,7 @@ declare -a adlist_enabled_in_gravity
 declare -i run_gravity_now
 declare -a adlist_conf_minimal_enabled
 left_domains=
+PIHOLE_FTL_VERSION=
 
 
 #for text formating
@@ -158,6 +159,16 @@ done
 
 warm_up() {
 
+# get Pi-hole version
+PIHOLE_FTL_VERSION=$(pihole-FTL -vv |awk '/dnsmasq/{getline; print substr($2,9)}')
+
+# Enforce an up-to-date pihole version. This also guarantees that the new adlist-filename schema is used, sqlite shell is exposed and CNAME Data is availabe. 
+if [ "$(printf '%s\n' "2.83" "$PIHOLE_FTL_VERSION" | sort -V | head -n1)" = "2.83" ]; then :
+    else
+        echo -e "\n\n  [✗]  ${bold}You're running an old Pi-hole version which is missing important security updates. Please upgrade.${normal}"
+        exit 1
+fi
+
 # exit if $DAYS_REQUESTED is no digit
 case "$DAYS_REQUESTED" in
     ''|*[0-9]*) ;;
@@ -175,6 +186,11 @@ esac
 
 echo -e "\n   ++++++++ Info ++++++++\n"
 
+# print Pi-hole FTL version and SQLite version
+echo -e "  [i]  Pi-hole FTL Version: $PIHOLE_FTL_VERSION"
+
+SQLITE_VERSION=$(pihole-FTL sql --version|awk '{print $1}')
+echo -e "  [i]  SQLITE_VERSION: $SQLITE_VERSION"
 
 # print number of requested days
 if [ "$DAYS_REQUESTED" = 0 ];
@@ -226,6 +242,7 @@ if git -C /etc/.pihole/ log 2> /dev/null |grep -q 73963fecda6dc65b10d1dd3e43a593
 fi
 
 
+
 # does the query database contain the additional info for deep CNAME inspection
 if sqlite3 ${PIHOLE_FTL} "PRAGMA table_info(queries);" |grep -q additional_info ;then
         CNAME_AVAILABLE=1
@@ -234,11 +251,6 @@ if sqlite3 ${PIHOLE_FTL} "PRAGMA table_info(queries);" |grep -q additional_info 
         CNAME_AVAILABLE=0
         echo -e "  [i]  CNAME_AVAILABLE: deep CNAME info not available"
 fi
-
-
-# get and print SQLite version
-SQLITE_VERSION=$(sqlite3 --version|awk '{print $1}')
-echo -e "  [i]  SQLITE_VERSION: $SQLITE_VERSION"
 
 echo -e "\n   ++++++++++++++++++++++\n\n"
 }
