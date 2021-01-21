@@ -189,7 +189,7 @@ esac
 echo -e "\n   ++++++++ Info ++++++++\n"
 
 # print Pi-hole FTL version and SQLite version
-echo -e "  [i]  Pi-hole FTL Version: $PIHOLE_FTL_VERSION"
+echo -e "  [i]  PIHOLE_FTL_VERSION: $PIHOLE_FTL_VERSION"
 
 SQLITE_VERSION=$(pihole-FTL sqlite3 --version|awk '{print $1}')
 echo -e "  [i]  SQLITE_VERSION: $SQLITE_VERSION"
@@ -723,5 +723,3 @@ if [ "$UNIQUE" = 1 ];
 fi
 
 remove_temp_database
-
-
