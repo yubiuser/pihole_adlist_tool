@@ -79,8 +79,8 @@ timestamp2date () {
 
 set_timestamps () {
 
-    TIMESTAMP_FIRST_QUERY=$(sqlite3 $PIHOLE_FTL "SELECT MIN(timestamp) FROM queries;") 
-    TIMESTAMP_LAST_QUERY=$(sqlite3 $PIHOLE_FTL "SELECT MAX(timestamp) FROM queries;")
+    TIMESTAMP_FIRST_QUERY=$(sqlite $PIHOLE_FTL "SELECT MIN(timestamp) FROM queries;") 
+    TIMESTAMP_LAST_QUERY=$(sqlite $PIHOLE_FTL "SELECT MAX(timestamp) FROM queries;")
     if [ "$DAYS_REQUESTED" = 0 ];
         then
             TIMESTAMP_REQUESTED=$TIMESTAMP_FIRST_QUERY
@@ -88,7 +88,7 @@ set_timestamps () {
             TIMESTAMP_REQUESTED=$(date +%s)
             TIMESTAMP_REQUESTED=$TIMESTAMP_REQUESTED-86400*${DAYS_REQUESTED}
     fi
-    TIMESTAMP_FIRST_ANALYZED=$(sqlite3 $PIHOLE_FTL "SELECT min(timestamp) FROM queries WHERE timestamp>=$TIMESTAMP_REQUESTED;")
+    TIMESTAMP_FIRST_ANALYZED=$(sqlite $PIHOLE_FTL "SELECT min(timestamp) FROM queries WHERE timestamp>=$TIMESTAMP_REQUESTED;")
 }
 
 # converts dates
@@ -106,14 +106,14 @@ set_dates () {
 # which might not contain all domains that could have been blocked or only enable adlists with unique covered domains
 
 domains_blocked_future () {
-sqlite3 $TEMP_DB << EOF
+sqlite $TEMP_DB << EOF
     ATTACH DATABASE "${GRAVITY}?mode=ro" AS gravity_db; 
         INSERT INTO info (property, value) Select 'NUM_DOMAINS_BLOCKED_FUTURE', count(distinct gravity_strip.domain) from gravity_strip join gravity_db.gravity on gravity_strip.domain=gravity_db.gravity.domain Join gravity_db.adlist on gravity_db.gravity.adlist_id=gravity_db.adlist.id where enabled=1;
     DETACH DATABASE gravity_db;
 .exit
 EOF
 
-NUM_DOMAINS_BLOCKED_FUTURE=$(sqlite3 $TEMP_DB "SELECT value FROM info where property='NUM_DOMAINS_BLOCKED_FUTURE';")
+NUM_DOMAINS_BLOCKED_FUTURE=$(sqlite $TEMP_DB "SELECT value FROM info where property='NUM_DOMAINS_BLOCKED_FUTURE';")
 
 echo
 echo "  [✓]  Of the ${bold}"$NUM_DOMAINS_BLOCKED_CURRENT"${normal} domains that would have been blocked by the adlist configuration you chose to analyze,"
@@ -136,6 +136,10 @@ remove_temp_database
 exit 1
 }
 
+# use pihole-FTL's build-in sql shell
+sqlite () {
+ pihole-FTL sqlite3 "$@"
+}
 
 trap cleanup_on_trap INT
 
@@ -187,7 +191,7 @@ echo -e "\n   ++++++++ Info ++++++++\n"
 # print Pi-hole FTL version and SQLite version
 echo -e "  [i]  Pi-hole FTL Version: $PIHOLE_FTL_VERSION"
 
-SQLITE_VERSION=$(pihole-FTL sql --version|awk '{print $1}')
+SQLITE_VERSION=$(pihole-FTL sqlite3 --version|awk '{print $1}')
 echo -e "  [i]  SQLITE_VERSION: $SQLITE_VERSION"
 
 # print number of requested days
@@ -252,7 +256,7 @@ set_timestamps
 set_dates
 
 # get FTL_ID based on $TIMESTAMP_REQUESTED
-FTL_ID=$(sqlite3 $PIHOLE_FTL "SELECT MIN(id) FROM queries WHERE timestamp>=$TIMESTAMP_REQUESTED;")
+FTL_ID=$(sqlite $PIHOLE_FTL "SELECT MIN(id) FROM queries WHERE timestamp>=$TIMESTAMP_REQUESTED;")
 
 
 
@@ -277,7 +281,7 @@ fi
 
 
 # save old adlist_configuration 
-adlist_conf_old_enabled=(`sqlite3 $GRAVITY "select id from adlist where enabled=1;"`)
+adlist_conf_old_enabled=(`sqlite $GRAVITY "select id from adlist where enabled=1;"`)
 
 echo "  Would you like to analyze your current adlist configuration or first enable all adlists (current can be restored later)?"
 echo
@@ -297,7 +301,7 @@ if [ "$menu_selection" -eq 1 ]; then
 
     # check if a mismatch between enabled adlists and data in gravity exists, offer to run gravity
     # https://stackoverflow.com/a/28161520
-    adlist_enabled_in_gravity=(`sqlite3 $GRAVITY "select distinct adlist_id from gravity;"`)
+    adlist_enabled_in_gravity=(`sqlite $GRAVITY "select distinct adlist_id from gravity;"`)
     if [ -n "$(echo ${adlist_conf_old_enabled[@]} ${adlist_enabled_in_gravity[@]} | tr ' ' '\n' |sort |uniq -u)" ]; then
 
         echo
@@ -339,7 +343,7 @@ fi
 if [ "$menu_selection" -eq 2 ]; then
 
     echo "  [i]  Enabling all adlists...."
-    sudo sqlite3 $GRAVITY "UPDATE adlist SET enabled=1;"
+    sudo sqlite $GRAVITY "UPDATE adlist SET enabled=1;"
     echo
     echo
     echo "  [i]  Starting gravity"
@@ -376,7 +380,7 @@ echo "  [i]  This might take some time - please be patient."
 
 
 # create $TEMP_DB
-sqlite3 $TEMP_DB << EOF
+sqlite $TEMP_DB << EOF
     create table blocked_domains (domain TEXT UNIQUE,hits INTEGER);
     create table adlist (id INTEGER, enabled INTEGER, address TEXT, total_domains INTEGER, domains_covered INTEGER, hits_covered INTEGER, unique_domains_covered INTEGER);
     create table gravity_strip (domain TEXT,adlist_id INTEGER);
@@ -409,7 +413,7 @@ EOF
 # 10.) update blacklist_cname with the number of hits for each domain
 
 
-sqlite3 -cmd ".timeout 5000" $TEMP_DB << EOF
+sqlite -cmd ".timeout 5000" $TEMP_DB << EOF
     ATTACH DATABASE "${PIHOLE_FTL}" AS pihole_ftl_db;
     ATTACH DATABASE "${GRAVITY}?mode=ro" AS gravity_db;
 
@@ -448,7 +452,7 @@ EOF
 # 4.) counts the number of unique domains covered by each adlist
 # 5-11.) Calculate some statistics
 
-sqlite3 $TEMP_DB << EOF
+sqlite $TEMP_DB << EOF
     INSERT INTO unique_domains(domain, adlist_id) SELECT domain, adlist_id FROM gravity_strip GROUP BY domain HAVING COUNT(domain)==1 order by adlist_id asc;
     UPDATE adlist SET domains_covered=(select count(domain) FROM gravity_strip WHERE id== adlist_id GROUP BY adlist_id);
     UPDATE adlist SET hits_covered=(SELECT SUM(blocked_domains.hits) FROM gravity_strip JOIN blocked_domains ON gravity_strip.domain == blocked_domains.domain WHERE id== adlist_id Group by adlist_id);
@@ -474,22 +478,22 @@ EOF
 
 
 grep -c . /etc/pihole/list* |awk -F '[.:]' '{print $2 " "$NF}' | while read adlist_id count; do
-             sqlite3 $TEMP_DB "UPDATE adlist SET total_domains="${count}" WHERE id="${adlist_id}";"
+             sqlite $TEMP_DB "UPDATE adlist SET total_domains="${count}" WHERE id="${adlist_id}";"
 done
 
 
 # get some statistics
 # the number of domains blocked and hits is the sum of enties with status 1 or 9
-read NUM_DOMAINS_BLOCKED HITS_TOTAL <<<$(sqlite3 -separator " " $PIHOLE_FTL "SELECT COUNT(DISTINCT domain),count(domain) FROM queries WHERE id>=${FTL_ID} AND status in (1,9);")
+read NUM_DOMAINS_BLOCKED HITS_TOTAL <<<$(sqlite -separator " " $PIHOLE_FTL "SELECT COUNT(DISTINCT domain),count(domain) FROM queries WHERE id>=${FTL_ID} AND status in (1,9);")
 
-NUM_ADLISTS=$(sqlite3 $TEMP_DB "SELECT value FROM info where property='NUM_ADLISTS';")
-NUM_ADLISTS_ENABLED=$(sqlite3 $TEMP_DB "SELECT value FROM info where property='NUM_ADLISTS_ENABLED';")
-NUM_DOMAINS_BLOCKED_CURRENT=$(sqlite3 $TEMP_DB "SELECT value FROM info where property='NUM_DOMAINS_BLOCKED_CURRENT';")
-HITS_TOTAL_CURRENT=$(sqlite3 $TEMP_DB "SELECT value FROM info where property='HITS_TOTAL_CURRENT';")
-BLACKLIST_GRAVITY=$(sqlite3 $TEMP_DB "SELECT value FROM info where property='BLACKLIST_GRAVITY';")
-NUM_TOTAL_UNIQUE_DOMAINS=$(sqlite3 $TEMP_DB "SELECT value FROM info where property='NUM_TOTAL_UNIQUE_DOMAINS';")
-BLACKLIST_CNAME=$(sqlite3 $TEMP_DB "SELECT value FROM info where property='BLACKLIST_CNAME';")
-NUM_GRAVITY_UNIQUE_DOMAINS=$(sqlite3 $GRAVITY "SELECT value FROM info WHERE property == 'gravity_count';")
+NUM_ADLISTS=$(sqlite $TEMP_DB "SELECT value FROM info where property='NUM_ADLISTS';")
+NUM_ADLISTS_ENABLED=$(sqlite $TEMP_DB "SELECT value FROM info where property='NUM_ADLISTS_ENABLED';")
+NUM_DOMAINS_BLOCKED_CURRENT=$(sqlite $TEMP_DB "SELECT value FROM info where property='NUM_DOMAINS_BLOCKED_CURRENT';")
+HITS_TOTAL_CURRENT=$(sqlite $TEMP_DB "SELECT value FROM info where property='HITS_TOTAL_CURRENT';")
+BLACKLIST_GRAVITY=$(sqlite $TEMP_DB "SELECT value FROM info where property='BLACKLIST_GRAVITY';")
+NUM_TOTAL_UNIQUE_DOMAINS=$(sqlite $TEMP_DB "SELECT value FROM info where property='NUM_TOTAL_UNIQUE_DOMAINS';")
+BLACKLIST_CNAME=$(sqlite $TEMP_DB "SELECT value FROM info where property='BLACKLIST_CNAME';")
+NUM_GRAVITY_UNIQUE_DOMAINS=$(sqlite $GRAVITY "SELECT value FROM info WHERE property == 'gravity_count';")
 
 
 echo
@@ -517,7 +521,7 @@ if [ "$BLACKLIST_GRAVITY" -ne 0 ]; then
     echo "       adlist, the number of potentially blocked domains/hits is therefore higher."
     echo
     echo
-    sqlite3 -column -header $TEMP_DB "SELECT * FROM blacklist_gravity"
+    sqlite -column -header $TEMP_DB "SELECT * FROM blacklist_gravity"
     echo
     echo "  [i]  Use 'pihole -q DOMAIN' to see which adlist(s) contains the requested domain"
     echo
@@ -537,7 +541,7 @@ if [ "$BLACKLIST_CNAME" -ne 0 ]; then
     echo "       the number of potentially blocked domains/hits is therefore higher."
     echo
     echo
-    sqlite3 -column -header $TEMP_DB "SELECT * FROM blacklist_cname"
+    sqlite -column -header $TEMP_DB "SELECT * FROM blacklist_cname"
     echo
     echo
     echo
@@ -556,7 +560,7 @@ if [ "$TOP" = 0 ]; then :
         echo "       Those would have been the ${bold}"$TOP" top blocked adlist domains${normal} since "$DATE_FIRST_ANALYZED""
         echo "       using your current adlist configuration"
         echo
-        sqlite3 -column -header $TEMP_DB "SELECT domain, hits FROM blocked_domains LIMIT "${TOP}";"
+        sqlite -column -header $TEMP_DB "SELECT domain, hits FROM blocked_domains LIMIT "${TOP}";"
         echo
         echo
         echo
@@ -572,7 +576,7 @@ echo
 echo
 
 # prints the adlist table, sorting depends on -s argument
-sqlite3 -column -header $TEMP_DB "SELECT id, enabled, total_domains, domains_covered, hits_covered, unique_domains_covered, address FROM adlist ORDER BY ${SORT_ORDER};"
+sqlite -column -header $TEMP_DB "SELECT id, enabled, total_domains, domains_covered, hits_covered, unique_domains_covered, address FROM adlist ORDER BY ${SORT_ORDER};"
 
 echo
 echo
@@ -627,10 +631,10 @@ if [ "$menu_selection" -eq 2 ]; then
     
     echo
     echo "  [i]  Enabling adlists with covered unique domains...."
-    sudo sqlite3 $GRAVITY "UPDATE adlist SET enabled=0;"
-    adlist_conf_unique_enabled=(`sqlite3 $TEMP_DB "select id from adlist where unique_domains_covered IS NOT NULL;"`)
+    sudo sqlite $GRAVITY "UPDATE adlist SET enabled=0;"
+    adlist_conf_unique_enabled=(`sqlite $TEMP_DB "select id from adlist where unique_domains_covered IS NOT NULL;"`)
     for adlist_id in "${adlist_conf_unique_enabled[@]}"; do
-       sudo  sqlite3 $GRAVITY "UPDATE adlist SET enabled=1 where id=$adlist_id;"
+       sudo  sqlite $GRAVITY "UPDATE adlist SET enabled=1 where id=$adlist_id;"
     done
     pihole restartdns reload-lists    
     echo
@@ -643,7 +647,7 @@ if [ "$menu_selection" -eq 3 ]; then
     
     echo
     echo "  [i]  Enabling minimum number of adlists that cover all domains that would have been blocked...."
-    sudo sqlite3 $GRAVITY "UPDATE adlist SET enabled=0;"
+    sudo sqlite $GRAVITY "UPDATE adlist SET enabled=0;"
     
     # get all adlist_ids with unique domains (same as $adlist_conf_unique_enabled)
     # create a copy of gravity_strip where domains can be removed from (gravity_strip is used later again)
@@ -654,28 +658,28 @@ if [ "$menu_selection" -eq 3 ]; then
     #   remove all domains from gravity_dup that are also contained in that adlist
     #   count how many domains are still on gravity_dup
     
-    adlist_conf_minimal_enabled=(`sqlite3 $TEMP_DB "select id from adlist where unique_domains_covered IS NOT NULL;"`)
+    adlist_conf_minimal_enabled=(`sqlite $TEMP_DB "select id from adlist where unique_domains_covered IS NOT NULL;"`)
     
-    sqlite3 $TEMP_DB "CREATE TABLE gravity_dup AS SELECT * FROM gravity_strip"
+    sqlite $TEMP_DB "CREATE TABLE gravity_dup AS SELECT * FROM gravity_strip"
     
     for adlist_id in "${adlist_conf_minimal_enabled[@]}"; do
-       sqlite3 $TEMP_DB "DELETE FROM gravity_dup WHERE domain IN (SELECT domain from gravity_dup where adlist_id=$adlist_id);"
+       sqlite $TEMP_DB "DELETE FROM gravity_dup WHERE domain IN (SELECT domain from gravity_dup where adlist_id=$adlist_id);"
     done
     
-    left_domains=(`sqlite3 $TEMP_DB "SELECT COUNT (domain) from gravity_dup;"`)
+    left_domains=(`sqlite $TEMP_DB "SELECT COUNT (domain) from gravity_dup;"`)
     
     while [[ $left_domains != [0] ]]; do
-        current_id=(`sqlite3 $TEMP_DB "Select adlist_id from gravity_dup group by adlist_id order by count (domain) desc, adlist_id asc limit 1;"`);
+        current_id=(`sqlite $TEMP_DB "Select adlist_id from gravity_dup group by adlist_id order by count (domain) desc, adlist_id asc limit 1;"`);
     
         adlist_conf_minimal_enabled[${#adlist_conf_minimal_enabled[@]}]="$current_id"
-        sqlite3 $TEMP_DB "DELETE FROM gravity_dup WHERE domain IN (SELECT domain from gravity_dup where adlist_id=$current_id);"
-        left_domains=(`sqlite3 $TEMP_DB "SELECT COUNT (domain) from gravity_dup;"`)  
+        sqlite $TEMP_DB "DELETE FROM gravity_dup WHERE domain IN (SELECT domain from gravity_dup where adlist_id=$current_id);"
+        left_domains=(`sqlite $TEMP_DB "SELECT COUNT (domain) from gravity_dup;"`)  
     done
 
     echo "  [i]  Enabling adlists with id ${adlist_conf_minimal_enabled[@]}"
 
     for adlist_id in "${adlist_conf_minimal_enabled[@]}"; do
-       sudo  sqlite3 $GRAVITY "UPDATE adlist SET enabled=1 where id=$adlist_id;"
+       sudo  sqlite $GRAVITY "UPDATE adlist SET enabled=1 where id=$adlist_id;"
     done
     
     pihole restartdns reload-lists    
@@ -691,9 +695,9 @@ if [ "$menu_selection" -eq 4 ]; then
 
     echo
     echo "  [i]  Restoring previous adlist configuration...."
-    sudo sqlite3 $GRAVITY "UPDATE adlist SET enabled=0;"
+    sudo sqlite $GRAVITY "UPDATE adlist SET enabled=0;"
     for adlist_id in "${adlist_conf_old_enabled[@]}"; do
-       sudo sqlite3 $GRAVITY "UPDATE adlist SET enabled=1 where id=$adlist_id;"
+       sudo sqlite $GRAVITY "UPDATE adlist SET enabled=1 where id=$adlist_id;"
     done
     pihole restartdns reload-lists    
     echo
@@ -713,7 +717,7 @@ if [ "$UNIQUE" = 1 ];
         echo
         echo "  [i]  ${bold}Covered unique domains${normal}"
         echo
-        sqlite3 -column -header $TEMP_DB "SELECT domain, adlist_id, address FROM unique_domains JOIN adlist WHERE adlist_id=id;"
+        sqlite -column -header $TEMP_DB "SELECT domain, adlist_id, address FROM unique_domains JOIN adlist WHERE adlist_id=id;"
         echo
         echo
 fi
