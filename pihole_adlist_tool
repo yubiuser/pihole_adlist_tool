@@ -41,7 +41,7 @@ declare -a adlist_enabled_in_gravity
 declare -i run_gravity_now
 declare -a adlist_conf_minimal_enabled
 left_domains=
-PIHOLE_FTL_VERSION=
+PIHOLE_DNSMASQ_VERSION=
 
 
 #for text formating
@@ -166,11 +166,11 @@ done
 
 warm_up() {
 
-# get Pi-hole version
-PIHOLE_FTL_VERSION=$(pihole-FTL -vv |awk '/dnsmasq/{getline; print substr($2,9)}')
+# get Pi-hole's dnsmasq version
+PIHOLE_DNSMASQ_VERSION=$(pihole-FTL -vv |awk '/dnsmasq/{getline; print substr($2,9)}')
 
 # Enforce an up-to-date pihole version. This also guarantees that the new adlist-filename schema is used, sqlite shell is exposed and CNAME Data is availabe. 
-if [ "$(printf '%s\n' "2.83" "$PIHOLE_FTL_VERSION" | sort -V | head -n1)" = "2.83" ]; then :
+if [ "$(printf '%s\n' "2.83" "$PIHOLE_DNSMASQ_VERSION" | sort -V | head -n1)" = "2.83" ]; then :
     else
         echo -e "\n\n  [✗]  ${bold}You're running an old Pi-hole version which is missing important security updates. Please upgrade.${normal}"
         exit 1
@@ -194,7 +194,7 @@ esac
 echo -e "\n   ++++++++ Info ++++++++\n"
 
 # print Pi-hole FTL version and SQLite version
-echo -e "  [i]  PIHOLE_FTL_VERSION: $PIHOLE_FTL_VERSION"
+echo -e "  [i]  PIHOLE_DNSMASQ_VERSION: $PIHOLE_DNSMASQ_VERSION"
 
 SQLITE_VERSION=$(pihole-FTL sqlite3 --version|awk '{print $1}')
 echo -e "  [i]  SQLITE_VERSION: $SQLITE_VERSION"
@@ -480,8 +480,6 @@ EOF
 # This is faster than to count the domains for each adlist from gravity_db
 # note: in a next Pi-hole version, Pi-hole will store the number of domains for each adlist as additional info. This can then be used.
 
-
-
 grep -c . /etc/pihole/list* |awk -F '[.:]' '{print $2 " "$NF}' | while read adlist_id count; do
              sqlite $TEMP_DB "UPDATE adlist SET total_domains="${count}" WHERE id="${adlist_id}";"
 done
@@ -658,10 +656,10 @@ if [ "$menu_selection" -eq 3 ]; then
     # create a copy of gravity_strip where domains can be removed from (gravity_strip is used later again)
     # delete all domains from gravity_dup that are also found on an adlist in the array with the unique domains
     # repeat until gravity_dup is empty
-    #   get the adlist_id for which there are the most remaining domains on gravity_dup
-    #   add this adlist_id to the array
-    #   remove all domains from gravity_dup that are also contained in that adlist
-    #   count how many domains are still on gravity_dup
+    # get the adlist_id for which there are the most remaining domains on gravity_dup
+    # add this adlist_id to the array
+    # remove all domains from gravity_dup that are also contained in that adlist
+    # count how many domains are still on gravity_dup
     
     adlist_conf_minimal_enabled=(`sqlite $TEMP_DB "select id from adlist where unique_domains_covered IS NOT NULL;"`)
     
@@ -700,7 +698,7 @@ if [ "$menu_selection" -eq 4 ]; then
 
     echo
     echo "  [i]  Restoring previous adlist configuration...."
-    udo bash -c "$SUDO_SQLITE; sqlite $GRAVITY 'UPDATE adlist SET enabled=0;'"
+    sudo bash -c "$SUDO_SQLITE; sqlite $GRAVITY 'UPDATE adlist SET enabled=0;'"
     for adlist_id in "${adlist_conf_old_enabled[@]}"; do
        sudo bash -c "$SUDO_SQLITE; sqlite $GRAVITY 'UPDATE adlist SET enabled=1 where id=$adlist_id;'"
     done
