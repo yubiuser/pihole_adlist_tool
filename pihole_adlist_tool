@@ -137,9 +137,14 @@ exit 1
 }
 
 # use pihole-FTL's build-in sql shell
+# putting this in a function allows to easily change to another sqlite engine one day if necssary
 sqlite () {
  pihole-FTL sqlite3 "$@"
 }
+
+# use declare to save the sqlite function, which will be passed by bash -c to the sudo commands 
+# https://unix.stackexchange.com/questions/269078/executing-a-bash-script-function-with-sudo
+SUDO_SQLITE=$(declare -f sqlite)
 
 trap cleanup_on_trap INT
 
@@ -343,7 +348,7 @@ fi
 if [ "$menu_selection" -eq 2 ]; then
 
     echo "  [i]  Enabling all adlists...."
-    sudo sqlite $GRAVITY "UPDATE adlist SET enabled=1;"
+    sudo bash -c "$SUDO_SQLITE; sqlite $GRAVITY 'UPDATE adlist SET enabled=1;'"
     echo
     echo
     echo "  [i]  Starting gravity"
@@ -631,10 +636,10 @@ if [ "$menu_selection" -eq 2 ]; then
     
     echo
     echo "  [i]  Enabling adlists with covered unique domains...."
-    sudo sqlite $GRAVITY "UPDATE adlist SET enabled=0;"
+    sudo bash -c "$SUDO_SQLITE; sqlite $GRAVITY 'UPDATE adlist SET enabled=0;'"
     adlist_conf_unique_enabled=(`sqlite $TEMP_DB "select id from adlist where unique_domains_covered IS NOT NULL;"`)
     for adlist_id in "${adlist_conf_unique_enabled[@]}"; do
-       sudo  sqlite $GRAVITY "UPDATE adlist SET enabled=1 where id=$adlist_id;"
+       sudo bash -c "$SUDO_SQLITE; sqlite $GRAVITY 'UPDATE adlist SET enabled=1 where id=$adlist_id;'"
     done
     pihole restartdns reload-lists    
     echo
@@ -647,7 +652,7 @@ if [ "$menu_selection" -eq 3 ]; then
     
     echo
     echo "  [i]  Enabling minimum number of adlists that cover all domains that would have been blocked...."
-    sudo sqlite $GRAVITY "UPDATE adlist SET enabled=0;"
+    sudo bash -c "$SUDO_SQLITE; sqlite $GRAVITY 'UPDATE adlist SET enabled=0;'"
     
     # get all adlist_ids with unique domains (same as $adlist_conf_unique_enabled)
     # create a copy of gravity_strip where domains can be removed from (gravity_strip is used later again)
@@ -679,7 +684,7 @@ if [ "$menu_selection" -eq 3 ]; then
     echo "  [i]  Enabling adlists with id ${adlist_conf_minimal_enabled[@]}"
 
     for adlist_id in "${adlist_conf_minimal_enabled[@]}"; do
-       sudo  sqlite $GRAVITY "UPDATE adlist SET enabled=1 where id=$adlist_id;"
+       sudo bash -c "$SUDO_SQLITE; sqlite $GRAVITY 'UPDATE adlist SET enabled=1 where id=$adlist_id;'"
     done
     
     pihole restartdns reload-lists    
@@ -695,9 +700,9 @@ if [ "$menu_selection" -eq 4 ]; then
 
     echo
     echo "  [i]  Restoring previous adlist configuration...."
-    sudo sqlite $GRAVITY "UPDATE adlist SET enabled=0;"
+    udo bash -c "$SUDO_SQLITE; sqlite $GRAVITY 'UPDATE adlist SET enabled=0;'"
     for adlist_id in "${adlist_conf_old_enabled[@]}"; do
-       sudo sqlite $GRAVITY "UPDATE adlist SET enabled=1 where id=$adlist_id;"
+       sudo bash -c "$SUDO_SQLITE; sqlite $GRAVITY 'UPDATE adlist SET enabled=1 where id=$adlist_id;'"
     done
     pihole restartdns reload-lists    
     echo
