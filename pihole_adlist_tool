@@ -53,8 +53,9 @@ SQLITE_VERSION=
 
 # variables for menu selection
 AUTOMATIC_MODE=0
-declare -i menu_selection
-declare -i run_gravity_now
+declare -i ENABLE_ALL_ADLISTS_FOR_ANALYSIS
+declare -i RUN_GRAVITY_NOW
+declare -i FURTHER_ACTION
 
 #for text formating
 bold=$(tput bold)
@@ -71,14 +72,14 @@ print_help() {
         -t [Num]                         Show top blocked domains. [Num] defines the number to show.
 
         -s [total/covered/hits/unique]   Set sorting order to total (total domains), covered (domains covered), hits (hits covered) or
-                                         unique (covered unique domains) DESC. (Default sorting: id ASC)
+                                         unique (covered unique domains) DESC. (Default sorting: id ASC).
 
-        -u                               Show covered unique domains
+        -u                               Show covered unique domains.
 
         -a                               Run in 'automatic mode'. No user input is requiered at all, assuming default choice would be 
                                          to leave everything untouched.
     
-        -h                               Show this help dialog
+        -h                               Show this help dialog.
 "
 }
 
@@ -312,17 +313,17 @@ echo
 
 if [ "$AUTOMATIC_MODE" -eq 1 ];
     then 
-     menu_selection=1
+     ENABLE_ALL_ADLISTS_FOR_ANALYSIS=1
      echo "  [i]  Running in automatic mode, keeping current adlist configuration."
 fi
 
-while [[ $menu_selection != [12] ]]; do
-  read -p "  Please select: " menu_selection
+while [[ $ENABLE_ALL_ADLISTS_FOR_ANALYSIS != [12] ]]; do
+  read -p "  Please select: " ENABLE_ALL_ADLISTS_FOR_ANALYSIS
 done
 echo
 echo
 
-if [ "$menu_selection" -eq 1 ]; then
+if [ "$ENABLE_ALL_ADLISTS_FOR_ANALYSIS" -eq 1 ]; then
     if [ "$AUTOMATIC_MODE" -eq 0 ];
         then 
           echo "  [i]  Keeping current adlist configuration"
@@ -349,14 +350,14 @@ if [ "$menu_selection" -eq 1 ]; then
         echo
         if [ "$AUTOMATIC_MODE" -eq 1 ];
              then 
-                run_gravity_now=2
+                RUN_GRAVITY_NOW=2
                 echo "  [i]  Running in automatic mode, not running gravity."
         fi
 
-        while [[ $run_gravity_now != [12] ]]; do
-            read -p "  Please select: " run_gravity_now
+        while [[ $RUN_GRAVITY_NOW != [12] ]]; do
+            read -p "  Please select: " RUN_GRAVITY_NOW
         done
-        if [ "$run_gravity_now" -eq 1 ]; then
+        if [ "$RUN_GRAVITY_NOW" -eq 1 ]; then
                 echo
                 echo
                 echo "  [i]  Starting gravity"
@@ -380,7 +381,7 @@ if [ "$menu_selection" -eq 1 ]; then
 fi
 
 
-if [ "$menu_selection" -eq 2 ]; then
+if [ "$ENABLE_ALL_ADLISTS_FOR_ANALYSIS" -eq 2 ]; then
 
     echo "  [i]  Enabling all adlists...."
     sudo bash -c "$SUDO_SQLITE; sqlite $GRAVITY 'UPDATE adlist SET enabled=1;'"
@@ -626,9 +627,8 @@ echo
 echo
 
 
-if [ "$menu_selection" -eq 1 ]; 
+if [ "$ENABLE_ALL_ADLISTS_FOR_ANALYSIS" -eq 1 ]; 
     then
-        menu_selection=
         echo "  Would you like to ... "
         echo
         echo "  1)  Keep your current adlist configuration" 
@@ -638,15 +638,14 @@ if [ "$menu_selection" -eq 1 ];
 
         if [ "$AUTOMATIC_MODE" -eq 1 ];
             then 
-                menu_selection=1
+                FURTHER_ACTION=1
                 echo "  [i]  Running in automatic mode, keeping current adlist configuration."
         fi
         
-        while [[ $menu_selection != [123] ]]; do
-          read -p "  Please select: " menu_selection
+        while [[ $FURTHER_ACTION != [123] ]]; do
+          read -p "  Please select: " FURTHER_ACTION
         done
-        if [ "$menu_selection" -eq 1 ]; then
-            echo
+        if [ "$FURTHER_ACTION" -eq 1 ]; then
             if [ "$AUTOMATIC_MODE" -eq 0 ];
                 then 
                     echo "  [i]  Keeping current adlist configuration"
@@ -654,7 +653,6 @@ if [ "$menu_selection" -eq 1 ];
         fi
 
     else
-        menu_selection=
         echo "  Would you like to ..."
         echo
         echo "  1)  Keep all adlists enabled" 
@@ -662,16 +660,16 @@ if [ "$menu_selection" -eq 1 ];
         echo "  3)  Enable the minimal number of adlists that cover all domains that would have been blocked"
         echo "  4)  Restore previous adlist configuration"
         echo
-        while [[ $menu_selection != [1234] ]]; do
-          read -p "  Please select: " menu_selection
+        while [[ $FURTHER_ACTION != [1234] ]]; do
+          read -p "  Please select: " FURTHER_ACTION
         done
-        if [ "$menu_selection" -eq 1 ]; then
+        if [ "$FURTHER_ACTION" -eq 1 ]; then
             echo            
             echo "  [i] Keeping all adlists enabled"
         fi
 fi
 
-if [ "$menu_selection" -eq 2 ]; then
+if [ "$FURTHER_ACTION" -eq 2 ]; then
     
     echo
     echo "  [i]  Enabling adlists with covered unique domains...."
@@ -687,7 +685,7 @@ if [ "$menu_selection" -eq 2 ]; then
     domains_blocked_future
 fi
 
-if [ "$menu_selection" -eq 3 ]; then
+if [ "$FURTHER_ACTION" -eq 3 ]; then
     
     echo
     echo "  [i]  Enabling minimum number of adlists that cover all domains that would have been blocked...."
@@ -720,6 +718,7 @@ if [ "$menu_selection" -eq 3 ]; then
         LEFT_DOMAINS=(`sqlite $TEMP_DB "SELECT COUNT (domain) from gravity_dup;"`)  
     done
 
+    echo
     echo "  [i]  Enabling adlists with id ${adlist_conf_minimal_enabled[@]}"
 
     for adlist_id in "${adlist_conf_minimal_enabled[@]}"; do
@@ -735,7 +734,7 @@ if [ "$menu_selection" -eq 3 ]; then
 fi
 
 
-if [ "$menu_selection" -eq 4 ]; then
+if [ "$FURTHER_ACTION" -eq 4 ]; then
 
     echo
     echo "  [i]  Restoring previous adlist configuration...."
