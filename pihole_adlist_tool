@@ -42,7 +42,7 @@ declare -i run_gravity_now
 declare -a adlist_conf_minimal_enabled
 left_domains=
 PIHOLE_DNSMASQ_VERSION=
-AUTOMATIC_MODE=
+AUTOMATIC_MODE=0
 
 
 #for text formating
@@ -299,6 +299,12 @@ echo "  1)  Current adlist configuration"
 echo "  2)  Enable all adlists (runs pihole -g)"
 echo
 
+if [ "$AUTOMATIC_MODE" -eq 1 ];
+    then 
+     menu_selection=1
+     echo "  [i]  Running in automatic mode, keeping current adlist configuration."
+fi
+
 while [[ $menu_selection != [12] ]]; do
   read -p "  Please select: " menu_selection
 done
@@ -306,7 +312,11 @@ echo
 echo
 
 if [ "$menu_selection" -eq 1 ]; then
-    echo "  [i]  Keeping current adlist configuration"
+    if [ "$AUTOMATIC_MODE" -eq 0 ];
+        then 
+          echo "  [i]  Keeping current adlist configuration"
+    fi
+    
 
 
     # check if a mismatch between enabled adlists and data in gravity exists, offer to run gravity
@@ -326,6 +336,11 @@ if [ "$menu_selection" -eq 1 ]; then
         echo "  1)  Yes"
         echo "  2)  No"
         echo
+        if [ "$AUTOMATIC_MODE" -eq 1 ];
+             then 
+                run_gravity_now=2
+                echo "  [i]  Running in automatic mode, not running gravity."
+        fi
 
         while [[ $run_gravity_now != [12] ]]; do
             read -p "  Please select: " run_gravity_now
@@ -344,7 +359,11 @@ if [ "$menu_selection" -eq 1 ]; then
             else
                 echo
                 echo
-                echo "  [i]  Not running gravity, keeping mismatch between enabled adlists and the data found in the gravity database. "
+                if [ "$AUTOMATIC_MODE" -eq 0 ];
+                    then 
+                        echo "  [i]  Not running gravity, keeping mismatch between enabled adlists and the data found in the gravity database. "
+                fi
+                
         fi
     fi
 fi
@@ -605,12 +624,22 @@ if [ "$menu_selection" -eq 1 ];
         echo "  2)  Enable only adlists with covered unique domains"
         echo "  3)  Enable the minimal number of adlists that cover all domains that would have been blocked"
         echo
+
+        if [ "$AUTOMATIC_MODE" -eq 1 ];
+            then 
+                menu_selection=1
+                echo "  [i]  Running in automatic mode, keeping current adlist configuration."
+        fi
+        
         while [[ $menu_selection != [123] ]]; do
           read -p "  Please select: " menu_selection
         done
         if [ "$menu_selection" -eq 1 ]; then
-            echo            
-            echo "  [i] Keeping current adlist configuration"
+            echo
+            if [ "$AUTOMATIC_MODE" -eq 0 ];
+                then 
+                    echo "  [i]  Keeping current adlist configuration"
+            fi            
         fi
 
     else
