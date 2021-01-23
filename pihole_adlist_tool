@@ -42,6 +42,7 @@ declare -i run_gravity_now
 declare -a adlist_conf_minimal_enabled
 left_domains=
 PIHOLE_DNSMASQ_VERSION=
+AUTOMATIC_MODE=
 
 
 #for text formating
@@ -62,6 +63,9 @@ print_help() {
                                          unique (covered unique domains) DESC. (Default sorting: id ASC)
 
         -u                               Show covered unique domains
+
+        -a                               Run in 'automatic mode'. No user input is requiered at all, assuming default choice would be 
+                                         to leave everything untouched.
     
         -h                               Show this help dialog
 "
@@ -149,12 +153,13 @@ SUDO_SQLITE=$(declare -f sqlite)
 trap cleanup_on_trap INT
 
 # getopts flags and assing arguments to variables
-while getopts 'd:t:s:uh' flag; do
+while getopts 'd:t:s:uah' flag; do
   case "${flag}" in
     d) DAYS_REQUESTED="${OPTARG}" ;;
     t) TOP="${OPTARG}" ;;
     s) SORT="${OPTARG}" ;;
     u) UNIQUE=1 ;;
+    a) AUTOMATIC_MODE=1 ;;
     h) print_help
         exit 0 ;;
     *) print_help
