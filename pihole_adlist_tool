@@ -7,7 +7,9 @@ PIHOLE_FTL="file:$PIHOLE_ROOT/pihole-FTL.db?mode=ro"
 GRAVITY="file:$PIHOLE_ROOT/gravity.db"
 
 
-#define and initialize variables
+## define and initialize variables ##
+
+# variables for various timestamps and dates
 DAYS_REQUESTED=30
 declare -i TIMESTAMP_REQUESTED
 declare -i TIMESTAMP_FIRST_QUERY
@@ -18,32 +20,41 @@ DATE_FIRST_QUERY=
 DATE_FIRST_ANALYZED=
 DATE_LAST_QUERY=
 declare -i FTL_ID
+
+# variables defining what to show in output
 TOP=0
 SORT=
+SORT_ORDER=
+UNIQUE=0
+
+# variables for adlist management
+declare -a adlist_conf_old_enabled
+declare -a adlist_conf_unique_enabled
+declare -a adlist_enabled_in_gravity
+declare -a adlist_conf_minimal_enabled
+LEFT_DOMAINS=
+
+# variables for stats
 NUM_DOMAINS_BLOCKED=
 HITS_TOTAL=
-SORT_ORDER=
 NUM_ADLISTS=
 NUM_ADLISTS_ENABLED=
 NUM_GRAVITY_UNIQUE_DOMAINS=
 NUM_DOMAINS_BLOCKED_CURRENT=
 HITS_TOTAL_CURRENT=
 BLACKLIST_GRAVITY=
-UNIQUE=0
 NUM_TOTAL_UNIQUE_DOMAINS=
-declare -a adlist_conf_old_enabled
-declare -a adlist_conf_unique_enabled
-declare -i menu_selection
 BLACKLIST_CNAME=
-SQLITE_VERSION=
 NUM_DOMAINS_BLOCKED_FUTURE=
-declare -a adlist_enabled_in_gravity
-declare -i run_gravity_now
-declare -a adlist_conf_minimal_enabled
-left_domains=
-PIHOLE_DNSMASQ_VERSION=
-AUTOMATIC_MODE=0
 
+# variables for general info
+PIHOLE_DNSMASQ_VERSION=
+SQLITE_VERSION=
+
+# variables for menu selection
+AUTOMATIC_MODE=0
+declare -i menu_selection
+declare -i run_gravity_now
 
 #for text formating
 bold=$(tput bold)
@@ -699,14 +710,14 @@ if [ "$menu_selection" -eq 3 ]; then
        sqlite $TEMP_DB "DELETE FROM gravity_dup WHERE domain IN (SELECT domain from gravity_dup where adlist_id=$adlist_id);"
     done
     
-    left_domains=(`sqlite $TEMP_DB "SELECT COUNT (domain) from gravity_dup;"`)
+    LEFT_DOMAINS=(`sqlite $TEMP_DB "SELECT COUNT (domain) from gravity_dup;"`)
     
-    while [[ $left_domains != [0] ]]; do
+    while [[ $LEFT_DOMAINS != [0] ]]; do
         current_id=(`sqlite $TEMP_DB "Select adlist_id from gravity_dup group by adlist_id order by count (domain) desc, adlist_id asc limit 1;"`);
     
         adlist_conf_minimal_enabled[${#adlist_conf_minimal_enabled[@]}]="$current_id"
         sqlite $TEMP_DB "DELETE FROM gravity_dup WHERE domain IN (SELECT domain from gravity_dup where adlist_id=$current_id);"
-        left_domains=(`sqlite $TEMP_DB "SELECT COUNT (domain) from gravity_dup;"`)  
+        LEFT_DOMAINS=(`sqlite $TEMP_DB "SELECT COUNT (domain) from gravity_dup;"`)  
     done
 
     echo "  [i]  Enabling adlists with id ${adlist_conf_minimal_enabled[@]}"
