@@ -511,7 +511,6 @@ echo "  [i]  Using you current adlist configuration ${bold}"$NUM_DOMAINS_BLOCKED
 echo
 echo
 echo
-read -p "  Press enter to continue..."
 
 if [ "$BLACKLIST_GRAVITY" -ne 0 ]; then
     echo
@@ -530,7 +529,6 @@ if [ "$BLACKLIST_GRAVITY" -ne 0 ]; then
     echo
     echo
     echo
-    read -p "  Press enter to continue..."
 fi
 
 if [ "$BLACKLIST_CNAME" -ne 0 ]; then
@@ -548,7 +546,6 @@ if [ "$BLACKLIST_CNAME" -ne 0 ]; then
     echo
     echo
     echo
-    read -p "  Press enter to continue..."
 fi
 
 
@@ -568,7 +565,6 @@ if [ "$TOP" = 0 ]; then :
         echo
         echo
         echo
-        read -p "  Press enter to continue..."
 fi
     
 echo
@@ -713,9 +709,6 @@ fi
 
 if [ "$UNIQUE" = 1 ];
     then 
-        echo
-        echo        
-        read -p "  Press enter to continue (show covered unique domains)..."
         echo
         echo
         echo "  [i]  ${bold}Covered unique domains${normal}"
