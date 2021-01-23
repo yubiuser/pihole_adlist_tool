@@ -645,11 +645,10 @@ if [ "$ENABLE_ALL_ADLISTS_FOR_ANALYSIS" -eq 1 ];
         while [[ $FURTHER_ACTION != [123] ]]; do
           read -p "  Please select: " FURTHER_ACTION
         done
-        if [ "$FURTHER_ACTION" -eq 1 ]; then
-            if [ "$AUTOMATIC_MODE" -eq 0 ];
-                then 
-                    echo "  [i]  Keeping current adlist configuration"
-            fi            
+        if [ "$FURTHER_ACTION" -eq 1 ] && [ "$AUTOMATIC_MODE" -eq 0 ]; 
+            then
+                echo
+                echo "  [i]  Keeping current adlist configuration"    
         fi
 
     else
