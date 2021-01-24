@@ -7,7 +7,9 @@ PIHOLE_FTL="file:$PIHOLE_ROOT/pihole-FTL.db?mode=ro"
 GRAVITY="file:$PIHOLE_ROOT/gravity.db"
 
 
-#define and initialize variables
+## define and initialize variables ##
+
+# variables for various timestamps and dates
 DAYS_REQUESTED=30
 declare -i TIMESTAMP_REQUESTED
 declare -i TIMESTAMP_FIRST_QUERY
@@ -18,31 +20,42 @@ DATE_FIRST_QUERY=
 DATE_FIRST_ANALYZED=
 DATE_LAST_QUERY=
 declare -i FTL_ID
+
+# variables defining what to show in output
 TOP=0
 SORT=
+SORT_ORDER=
+UNIQUE=0
+
+# variables for adlist management
+declare -a adlist_conf_old_enabled
+declare -a adlist_conf_unique_enabled
+declare -a adlist_enabled_in_gravity
+declare -a adlist_conf_minimal_enabled
+LEFT_DOMAINS=
+
+# variables for stats
 NUM_DOMAINS_BLOCKED=
 HITS_TOTAL=
-SORT_ORDER=
 NUM_ADLISTS=
 NUM_ADLISTS_ENABLED=
 NUM_GRAVITY_UNIQUE_DOMAINS=
 NUM_DOMAINS_BLOCKED_CURRENT=
 HITS_TOTAL_CURRENT=
 BLACKLIST_GRAVITY=
-UNIQUE=0
 NUM_TOTAL_UNIQUE_DOMAINS=
-declare -a adlist_conf_old_enabled
-declare -a adlist_conf_unique_enabled
-declare -i menu_selection
 BLACKLIST_CNAME=
-SQLITE_VERSION=
 NUM_DOMAINS_BLOCKED_FUTURE=
-declare -a adlist_enabled_in_gravity
-declare -i run_gravity_now
-declare -a adlist_conf_minimal_enabled
-left_domains=
-PIHOLE_DNSMASQ_VERSION=
 
+# variables for general info
+PIHOLE_DNSMASQ_VERSION=
+SQLITE_VERSION=
+
+# variables for menu selection
+AUTOMATIC_MODE=0
+declare -i ENABLE_ALL_ADLISTS_FOR_ANALYSIS
+declare -i RUN_GRAVITY_NOW
+declare -i FURTHER_ACTION
 
 #for text formating
 bold=$(tput bold)
@@ -59,11 +72,14 @@ print_help() {
         -t [Num]                         Show top blocked domains. [Num] defines the number to show.
 
         -s [total/covered/hits/unique]   Set sorting order to total (total domains), covered (domains covered), hits (hits covered) or
-                                         unique (covered unique domains) DESC. (Default sorting: id ASC)
+                                         unique (covered unique domains) DESC. (Default sorting: id ASC).
 
-        -u                               Show covered unique domains
+        -u                               Show covered unique domains.
+
+        -a                               Run in 'automatic mode'. No user input is requiered at all, assuming default choice would be 
+                                         to leave everything untouched.
     
-        -h                               Show this help dialog
+        -h                               Show this help dialog.
 "
 }
 
@@ -149,12 +165,13 @@ SUDO_SQLITE=$(declare -f sqlite)
 trap cleanup_on_trap INT
 
 # getopts flags and assing arguments to variables
-while getopts 'd:t:s:uh' flag; do
+while getopts 'd:t:s:uah' flag; do
   case "${flag}" in
     d) DAYS_REQUESTED="${OPTARG}" ;;
     t) TOP="${OPTARG}" ;;
     s) SORT="${OPTARG}" ;;
     u) UNIQUE=1 ;;
+    a) AUTOMATIC_MODE=1 ;;
     h) print_help
         exit 0 ;;
     *) print_help
@@ -294,14 +311,24 @@ echo "  1)  Current adlist configuration"
 echo "  2)  Enable all adlists (runs pihole -g)"
 echo
 
-while [[ $menu_selection != [12] ]]; do
-  read -p "  Please select: " menu_selection
+if [ "$AUTOMATIC_MODE" -eq 1 ];
+    then 
+     ENABLE_ALL_ADLISTS_FOR_ANALYSIS=1
+     echo "  [i]  Running in automatic mode, keeping current adlist configuration."
+fi
+
+while [[ $ENABLE_ALL_ADLISTS_FOR_ANALYSIS != [12] ]]; do
+  read -p "  Please select: " ENABLE_ALL_ADLISTS_FOR_ANALYSIS
 done
 echo
 echo
 
-if [ "$menu_selection" -eq 1 ]; then
-    echo "  [i]  Keeping current adlist configuration"
+if [ "$ENABLE_ALL_ADLISTS_FOR_ANALYSIS" -eq 1 ]; then
+    if [ "$AUTOMATIC_MODE" -eq 0 ];
+        then 
+          echo "  [i]  Keeping current adlist configuration"
+    fi
+    
 
 
     # check if a mismatch between enabled adlists and data in gravity exists, offer to run gravity
@@ -321,11 +348,16 @@ if [ "$menu_selection" -eq 1 ]; then
         echo "  1)  Yes"
         echo "  2)  No"
         echo
+        if [ "$AUTOMATIC_MODE" -eq 1 ];
+             then 
+                RUN_GRAVITY_NOW=2
+                echo "  [i]  Running in automatic mode, not running gravity."
+        fi
 
-        while [[ $run_gravity_now != [12] ]]; do
-            read -p "  Please select: " run_gravity_now
+        while [[ $RUN_GRAVITY_NOW != [12] ]]; do
+            read -p "  Please select: " RUN_GRAVITY_NOW
         done
-        if [ "$run_gravity_now" -eq 1 ]; then
+        if [ "$RUN_GRAVITY_NOW" -eq 1 ]; then
                 echo
                 echo
                 echo "  [i]  Starting gravity"
@@ -339,13 +371,17 @@ if [ "$menu_selection" -eq 1 ]; then
             else
                 echo
                 echo
-                echo "  [i]  Not running gravity, keeping mismatch between enabled adlists and the data found in the gravity database. "
+                if [ "$AUTOMATIC_MODE" -eq 0 ];
+                    then 
+                        echo "  [i]  Not running gravity, keeping mismatch between enabled adlists and the data found in the gravity database. "
+                fi
+                
         fi
     fi
 fi
 
 
-if [ "$menu_selection" -eq 2 ]; then
+if [ "$ENABLE_ALL_ADLISTS_FOR_ANALYSIS" -eq 2 ]; then
 
     echo "  [i]  Enabling all adlists...."
     sudo bash -c "$SUDO_SQLITE; sqlite $GRAVITY 'UPDATE adlist SET enabled=1;'"
@@ -511,7 +547,6 @@ echo "  [i]  Using you current adlist configuration ${bold}"$NUM_DOMAINS_BLOCKED
 echo
 echo
 echo
-read -p "  Press enter to continue..."
 
 if [ "$BLACKLIST_GRAVITY" -ne 0 ]; then
     echo
@@ -530,7 +565,6 @@ if [ "$BLACKLIST_GRAVITY" -ne 0 ]; then
     echo
     echo
     echo
-    read -p "  Press enter to continue..."
 fi
 
 if [ "$BLACKLIST_CNAME" -ne 0 ]; then
@@ -548,7 +582,6 @@ if [ "$BLACKLIST_CNAME" -ne 0 ]; then
     echo
     echo
     echo
-    read -p "  Press enter to continue..."
 fi
 
 
@@ -568,7 +601,6 @@ if [ "$TOP" = 0 ]; then :
         echo
         echo
         echo
-        read -p "  Press enter to continue..."
 fi
     
 echo
@@ -595,25 +627,31 @@ echo
 echo
 
 
-if [ "$menu_selection" -eq 1 ]; 
+if [ "$ENABLE_ALL_ADLISTS_FOR_ANALYSIS" -eq 1 ]; 
     then
-        menu_selection=
         echo "  Would you like to ... "
         echo
         echo "  1)  Keep your current adlist configuration" 
         echo "  2)  Enable only adlists with covered unique domains"
         echo "  3)  Enable the minimal number of adlists that cover all domains that would have been blocked"
         echo
-        while [[ $menu_selection != [123] ]]; do
-          read -p "  Please select: " menu_selection
+
+        if [ "$AUTOMATIC_MODE" -eq 1 ];
+            then 
+                FURTHER_ACTION=1
+                echo "  [i]  Running in automatic mode, keeping current adlist configuration."
+        fi
+        
+        while [[ $FURTHER_ACTION != [123] ]]; do
+          read -p "  Please select: " FURTHER_ACTION
         done
-        if [ "$menu_selection" -eq 1 ]; then
-            echo            
-            echo "  [i] Keeping current adlist configuration"
+        if [ "$FURTHER_ACTION" -eq 1 ] && [ "$AUTOMATIC_MODE" -eq 0 ]; 
+            then
+                echo
+                echo "  [i]  Keeping current adlist configuration"    
         fi
 
     else
-        menu_selection=
         echo "  Would you like to ..."
         echo
         echo "  1)  Keep all adlists enabled" 
@@ -621,16 +659,16 @@ if [ "$menu_selection" -eq 1 ];
         echo "  3)  Enable the minimal number of adlists that cover all domains that would have been blocked"
         echo "  4)  Restore previous adlist configuration"
         echo
-        while [[ $menu_selection != [1234] ]]; do
-          read -p "  Please select: " menu_selection
+        while [[ $FURTHER_ACTION != [1234] ]]; do
+          read -p "  Please select: " FURTHER_ACTION
         done
-        if [ "$menu_selection" -eq 1 ]; then
+        if [ "$FURTHER_ACTION" -eq 1 ]; then
             echo            
             echo "  [i] Keeping all adlists enabled"
         fi
 fi
 
-if [ "$menu_selection" -eq 2 ]; then
+if [ "$FURTHER_ACTION" -eq 2 ]; then
     
     echo
     echo "  [i]  Enabling adlists with covered unique domains...."
@@ -646,7 +684,7 @@ if [ "$menu_selection" -eq 2 ]; then
     domains_blocked_future
 fi
 
-if [ "$menu_selection" -eq 3 ]; then
+if [ "$FURTHER_ACTION" -eq 3 ]; then
     
     echo
     echo "  [i]  Enabling minimum number of adlists that cover all domains that would have been blocked...."
@@ -669,16 +707,17 @@ if [ "$menu_selection" -eq 3 ]; then
        sqlite $TEMP_DB "DELETE FROM gravity_dup WHERE domain IN (SELECT domain from gravity_dup where adlist_id=$adlist_id);"
     done
     
-    left_domains=(`sqlite $TEMP_DB "SELECT COUNT (domain) from gravity_dup;"`)
+    LEFT_DOMAINS=(`sqlite $TEMP_DB "SELECT COUNT (domain) from gravity_dup;"`)
     
-    while [[ $left_domains != [0] ]]; do
+    while [[ $LEFT_DOMAINS != [0] ]]; do
         current_id=(`sqlite $TEMP_DB "Select adlist_id from gravity_dup group by adlist_id order by count (domain) desc, adlist_id asc limit 1;"`);
     
         adlist_conf_minimal_enabled[${#adlist_conf_minimal_enabled[@]}]="$current_id"
         sqlite $TEMP_DB "DELETE FROM gravity_dup WHERE domain IN (SELECT domain from gravity_dup where adlist_id=$current_id);"
-        left_domains=(`sqlite $TEMP_DB "SELECT COUNT (domain) from gravity_dup;"`)  
+        LEFT_DOMAINS=(`sqlite $TEMP_DB "SELECT COUNT (domain) from gravity_dup;"`)  
     done
 
+    echo
     echo "  [i]  Enabling adlists with id ${adlist_conf_minimal_enabled[@]}"
 
     for adlist_id in "${adlist_conf_minimal_enabled[@]}"; do
@@ -694,7 +733,7 @@ if [ "$menu_selection" -eq 3 ]; then
 fi
 
 
-if [ "$menu_selection" -eq 4 ]; then
+if [ "$FURTHER_ACTION" -eq 4 ]; then
 
     echo
     echo "  [i]  Restoring previous adlist configuration...."
@@ -713,9 +752,6 @@ fi
 
 if [ "$UNIQUE" = 1 ];
     then 
-        echo
-        echo        
-        read -p "  Press enter to continue (show covered unique domains)..."
         echo
         echo
         echo "  [i]  ${bold}Covered unique domains${normal}"
