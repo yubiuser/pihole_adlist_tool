@@ -168,7 +168,7 @@ trap cleanup_on_trap INT
 while getopts 'd:t:s:uah' flag; do
   case "${flag}" in
     d) DAYS_REQUESTED="${OPTARG}" ;;
-    t) TOP="${OPTARG}" ;;
+    t) TOP="${OPTARG}" ;;grep
     s) SORT="${OPTARG}" ;;
     u) UNIQUE=1 ;;
     a) AUTOMATIC_MODE=1 ;;
@@ -311,7 +311,7 @@ while [[ $ENABLE_ALL_ADLISTS_FOR_ANALYSIS != [12] ]]; do
 done
 echo
 echo
-
+grep
 if [ "$ENABLE_ALL_ADLISTS_FOR_ANALYSIS" -eq 1 ]; then
     if [ "$AUTOMATIC_MODE" -eq 0 ];
         then 
@@ -363,7 +363,7 @@ if [ "$ENABLE_ALL_ADLISTS_FOR_ANALYSIS" -eq 1 ]; then
                 if [ "$AUTOMATIC_MODE" -eq 0 ];
                     then 
                         echo "  [i]  Not running gravity, keeping mismatch between enabled adlists and the data found in the gravity database. "
-                fi
+                figrep
                 
         fi
     fi
@@ -505,7 +505,7 @@ EOF
 # This is faster than to count the domains for each adlist from gravity_db
 # note: in a next Pi-hole version, Pi-hole will store the number of domains for each adlist as additional info. This can then be used.
 
-grep -c . /etc/pihole/list* |awk -F '[.:]' '{print $2 " "$NF}' | while read adlist_id count; do
+grep -c . $PIHOLE_ROOT/list* |awk -F '[.:]' '{print $2 " "$NF}' | while read adlist_id count; do
              sqlite $TEMP_DB "UPDATE adlist SET total_domains="${count}" WHERE id="${adlist_id}";"
 done
 
