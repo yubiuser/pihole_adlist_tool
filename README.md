@@ -44,6 +44,19 @@ On my [NanoPi NeoPlus2](http://wiki.friendlyarm.com/wiki/index.php/NanoPi_NEO_Pl
 **Requirements**
 
 - Pi-hole FTL v5.5 (see [PR #13](https://github.com/yubiuser/pihole_adlist_tool/pull/13)) 
+- For Docker users see notes below
+
+---
+**Notes on Docker**
+
+**Running Pi-hole on docker is not officially supported by this script!**
+I don't run Pi-hole on docker myself and have no ability to test the script. Expect things to break anytime.
+However, I do try to release a "workaround" script that should work also with Pi-hole on docker. Don't expect the full functionality or me to invest a lot of time on this. Contributions welcome!
+
+Requirements:
+
+- Pi-hole v5.5
+- sqlite3 packges installed on host system
 
 ---
 ** Usage **
