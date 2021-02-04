@@ -168,7 +168,7 @@ trap cleanup_on_trap INT
 while getopts 'd:t:s:uah' flag; do
   case "${flag}" in
     d) DAYS_REQUESTED="${OPTARG}" ;;
-    t) TOP="${OPTARG}" ;;grep
+    t) TOP="${OPTARG}" ;;
     s) SORT="${OPTARG}" ;;
     u) UNIQUE=1 ;;
     a) AUTOMATIC_MODE=1 ;;
@@ -311,7 +311,7 @@ while [[ $ENABLE_ALL_ADLISTS_FOR_ANALYSIS != [12] ]]; do
 done
 echo
 echo
-grep
+
 if [ "$ENABLE_ALL_ADLISTS_FOR_ANALYSIS" -eq 1 ]; then
     if [ "$AUTOMATIC_MODE" -eq 0 ];
         then 
@@ -363,7 +363,7 @@ if [ "$ENABLE_ALL_ADLISTS_FOR_ANALYSIS" -eq 1 ]; then
                 if [ "$AUTOMATIC_MODE" -eq 0 ];
                     then 
                         echo "  [i]  Not running gravity, keeping mismatch between enabled adlists and the data found in the gravity database. "
-                figrep
+                fi
                 
         fi
     fi
