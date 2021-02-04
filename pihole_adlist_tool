@@ -516,7 +516,7 @@ EOF
 # This is faster than to count the domains for each adlist from gravity_db
 # note: in a next Pi-hole version, Pi-hole will store the number of domains for each adlist as additional info. This can then be used.
 
-grep -c . /etc/pihole/list* |awk -F '[.:]' '{print $2 " "$NF}' | while read adlist_id count; do
+grep -c . $PIHOLE_ROOT/list* |awk -F '[.:]' '{print $2 " "$NF}' | while read adlist_id count; do
              sqlite $TEMP_DB "UPDATE adlist SET total_domains="${count}" WHERE id="${adlist_id}";"
 done
 
