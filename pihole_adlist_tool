@@ -258,7 +258,15 @@ if [ "$UNIQUE" -eq 1 ];
         echo -e "  [i]  UNIQUE: Shown"
     else
         echo -e "  [i]  UNIQUE: Not shown"
-fi       
+fi
+
+# print if regex should be analysed as well
+if [ "$REGEX_MODE" -eq 1 ]; 
+    then 
+        echo -e "  [i]  REGEX_MODE: Enabled"
+    else
+        echo -e "  [i]  REGEX_MODE: Disabled"
+fi        
 
 echo -e "\n   ++++++++++++++++++++++\n\n"
 }
