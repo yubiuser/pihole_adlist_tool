@@ -26,6 +26,7 @@ TOP=0
 SORT=
 SORT_ORDER=
 UNIQUE=0
+REGEX_MODE=0
 
 # variables for adlist management
 declare -a adlist_conf_old_enabled
@@ -78,6 +79,8 @@ print_help() {
 
         -a                               Run in 'automatic mode'. No user input is requiered at all, assuming default choice would be 
                                          to leave everything untouched.
+
+        -r                               Analyse regex as well. Depending on the amount of domains and regex this might take a while.
     
         -h                               Show this help dialog.
 "
@@ -165,13 +168,14 @@ SUDO_SQLITE=$(declare -f sqlite)
 trap cleanup_on_trap INT
 
 # getopts flags and assing arguments to variables
-while getopts 'd:t:s:uah' flag; do
+while getopts 'd:t:s:uarh' flag; do
   case "${flag}" in
     d) DAYS_REQUESTED="${OPTARG}" ;;
     t) TOP="${OPTARG}" ;;
     s) SORT="${OPTARG}" ;;
     u) UNIQUE=1 ;;
     a) AUTOMATIC_MODE=1 ;;
+    r) REGEX_MODE=1 ;;
     h) print_help
         exit 0 ;;
     *) print_help
