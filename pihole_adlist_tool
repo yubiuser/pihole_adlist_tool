@@ -64,8 +64,8 @@ normal=$(tput sgr0)
 
 # variables for regex analysis
 declare -a all_domains
-CURRENT_DOMAIN
-REGEX_ID
+CURRENT_DOMAIN=
+REGEX_ID=
 
 # help message
 print_help() {
@@ -819,14 +819,16 @@ EOF
 
 # copy all domains from table all_domais in array all_domains
 # interate over each domain in all_domains
-# for each domain check if it is covered by a regex (using pihole-FTL regex-tes
+# for each domain check if it is covered by a regex (using pihole-FTL regex-test)
 # if the test returns regex_ids, save them in domain_by_regex table
+# NOTE: pihole-FTL regex-test will test also against regex whitelist BUT this is still much faster than to create a second loop to check against each regex blacklist indiviually
 
 
         all_domains=(`sqlite $TEMP_DB "SELECT domain FROM all_domains"`)
-        time for CURRENT_DOMAIN in "${all_domains[@]}"; do
-            pihole-FTL regex-test $CURRENT_DOMAIN |grep -E -o "DB ID [0-9]*"|awk '{print $3}' | while read REGEX_ID; do
-                sqlite $TEMP_DB "INSERT INTO domain_by_regex(domain, regex_id) VALUES ('$CURRENT_DOMAIN',$REGEX_ID);"
+
+        for CURRENT_DOMAIN in "${all_domains[@]}"; do
+                pihole-FTL regex-test $CURRENT_DOMAIN |grep -E -o "DB ID [0-9]*"|awk '{print $3}' | while read REGEX_ID; do
+                    sqlite $TEMP_DB "INSERT INTO domain_by_regex(domain, regex_id) VALUES ('$CURRENT_DOMAIN',$REGEX_ID);"
             done             
         done
 
@@ -841,7 +843,6 @@ EOF
         sqlite -column -header $TEMP_DB "SELECT id, enabled, domains_covered, regex FROM regex_blacklist;"
         echo
         echo
-
 fi
 
 remove_temp_database
