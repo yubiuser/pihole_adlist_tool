@@ -62,6 +62,11 @@ declare -i FURTHER_ACTION
 bold=$(tput bold)
 normal=$(tput sgr0)
 
+# variables for regex analysis
+declare -a all_domains
+CURRENT_DOMAIN
+REGEX_ID
+
 # help message
 print_help() {
     echo  
@@ -771,6 +776,72 @@ if [ "$UNIQUE" = 1 ];
         sqlite -column -header $TEMP_DB "SELECT domain, adlist_id, address FROM unique_domains JOIN adlist WHERE adlist_id=id;"
         echo
         echo
+fi
+
+# analyse regex
+if [ "$REGEX_MODE" -eq 1 ]; 
+    then
+        echo
+        echo
+        echo "  [i]  Analysing regex blacklist ....."
+        echo "  [i]  This might take some time (minutes!) - please be patient."
+        echo
+        echo
+        
+
+#
+# table regex_blacklist contains all blacklist regex from gravity.db
+# table all_domains contains all domains in the pihole-FTL.db (including domains from CNAME inspection)
+# table domain_by_regex contains all domains and the blocking regex
+
+# 1.) copy blacklisted regex info from gravity database
+# 2.) copy distinct domains from pihole-FTL.db
+# 3.) add distinct domains from pihole-FTL.db found in additional_info columen coming from CNAME inspection (type 9,10,11)
+
+
+sqlite -cmd ".timeout 5000" $TEMP_DB << EOF
+            ATTACH DATABASE "${PIHOLE_FTL}" AS pihole_ftl_db;
+            ATTACH DATABASE "${GRAVITY}?mode=ro" AS gravity_db;
+        
+            CREATE table regex_blacklist (id TEXT UNIQUE, regex TEXT, enabled INTEGER, domains_covered INTEGER);
+            CREATE table all_domains(domain TEXT UNIQUE);
+            CREATE table domain_by_regex(domain TEXT, regex_id INTEGER);
+        
+            INSERT INTO regex_blacklist(id, regex,enabled) SELECT id, domain, enabled FROM gravity_db.domainlist where type=3;
+            INSERT INTO all_domains(domain) SELECT distinct domain FROM pihole_ftl_db.queries;
+            INSERT OR IGNORE INTO all_domains(domain) SELECT distinct additional_info FROM pihole_ftl_db.queries where status in (9,10,11);
+
+
+            DETACH DATABASE gravity_db;
+            DETACH DATABASE pihole_ftl_db;
+.exit
+EOF
+
+# copy all domains from table all_domais in array all_domains
+# interate over each domain in all_domains
+# for each domain check if it is covered by a regex (using pihole-FTL regex-tes
+# if the test returns regex_ids, save them in domain_by_regex table
+
+
+        all_domains=(`sqlite $TEMP_DB "SELECT domain FROM all_domains"`)
+        time for CURRENT_DOMAIN in "${all_domains[@]}"; do
+            pihole-FTL regex-test $CURRENT_DOMAIN |grep -E -o "DB ID [0-9]*"|awk '{print $3}' | while read REGEX_ID; do
+                sqlite $TEMP_DB "INSERT INTO domain_by_regex(domain, regex_id) VALUES ('$CURRENT_DOMAIN',$REGEX_ID);"
+            done             
+        done
+
+# count for each regex_id how many domains are in domain_by_regex and store it in table regex_blacklist
+
+        sqlite $TEMP_DB "UPDATE regex_blacklist SET domains_covered=(SELECT COUNT(regex_id) from domain_by_regex WHERE id=regex_id GROUP BY regex_id );"
+        
+        echo "  [i]  ${bold}Regex coverage${normal}"
+        # prints the regex table
+        echo
+        echo
+        sqlite -column -header $TEMP_DB "SELECT id, enabled, domains_covered, regex FROM regex_blacklist;"
+        echo
+        echo
+
 fi
 
 remove_temp_database
