@@ -791,7 +791,7 @@ if [ "$REGEX_MODE" -eq 1 ];
 
 #
 # table regex_blacklist contains all blacklist regex from gravity.db
-# table all_domains contains all domains in the pihole-FTL.db (including domains from CNAME inspection)
+# table all_domains contains all domains (in the selected time periode) from the pihole-FTL.db (including domains from CNAME inspection)
 # table domain_by_regex contains all domains and the blocking regex
 
 # 1.) copy blacklisted regex info from gravity database
@@ -808,14 +808,15 @@ sqlite -cmd ".timeout 5000" $TEMP_DB << EOF
             CREATE table domain_by_regex(domain TEXT, regex_id INTEGER);
         
             INSERT INTO regex_blacklist(id, regex,enabled) SELECT id, domain, enabled FROM gravity_db.domainlist where type=3;
-            INSERT INTO all_domains(domain) SELECT distinct domain FROM pihole_ftl_db.queries;
-            INSERT OR IGNORE INTO all_domains(domain) SELECT distinct additional_info FROM pihole_ftl_db.queries where status in (9,10,11);
+            INSERT INTO all_domains(domain) SELECT distinct domain FROM pihole_ftl_db.queries WHERE id>=${FTL_ID};
+            INSERT OR IGNORE INTO all_domains(domain) SELECT distinct additional_info FROM pihole_ftl_db.queries WHERE status in (9,10,11) AND id>=${FTL_ID};
 
 
             DETACH DATABASE gravity_db;
             DETACH DATABASE pihole_ftl_db;
 .exit
 EOF
+
 
 # copy all domains from table all_domais in array all_domains
 # interate over each domain in all_domains
@@ -836,6 +837,9 @@ EOF
 
         sqlite $TEMP_DB "UPDATE regex_blacklist SET domains_covered=(SELECT COUNT(regex_id) from domain_by_regex WHERE id=regex_id GROUP BY regex_id );"
         
+        echo
+        echo
+        echo
         echo "  [i]  ${bold}Regex coverage${normal}"
         # prints the regex table
         echo
