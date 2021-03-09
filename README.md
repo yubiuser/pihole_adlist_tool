@@ -16,6 +16,7 @@ This script tries to provide you with a bunch of information that enables you to
     id, status, total domains on adlist, covered domains, hits, unique covered domains, address
  -  the sum of unique covered domains
 - optional: list of unique coverd domains with adlist_id, address
+- optional: analyse regex blacklist
 
 As domains usually appear on more then one adlist I introduce the concept of ***unique covered domains***. Those are domains that have been visited, would have been blocked and appear on just one adlist. This might help you to value your adlists not just by how many domains are covered but also what would happen if you disable this adlist.
 
@@ -25,7 +26,7 @@ As domains usually appear on more then one adlist I introduce the concept of ***
 - ~~Disabled blocklist won't be analyzed as gravity is not including domains from deactivated adlists. You can enable all adlists from within the script.~~
 The script will warn you, if there is a mismatch between the enabled adlists and data found in the gravity database. Users have the choise to run gravity to clear the mismatch or proceed anyway. In this case the tool will analyze all availabe data, but results must be interpreted with caution. (see [8dab71](https://github.com/yubiuser/pihole_adlist_tool/commit/8dab71836c1b2407c9626b17fd592399a7ef0b58))
 
--  Black/Whitelisted domains (including regex) are not considered when calculating the number of covered domains (and hits)
+-  Black/Whitelisted domains (~~including regex~~ see [PR #19](https://github.com/yubiuser/pihole_adlist_tool/pull/19) are not considered when calculating the number of covered domains (and hits)
 	- Whitelisted domains reduce the number of blocked domains as reported by pihole compared to the calculated numbers
 	-  Blacklisted domains increase the number of blocked domains as reported by pihole compared to the calculated numbers
 	
@@ -33,12 +34,17 @@ The script will warn you, if there is a mismatch between the enabled adlists and
 
 -  Other differences between the number of domains/hits as reported by pihole and calculated numbers are due to change in adlist configuration over time
 
+- For the limits of the regex analysis see the [notes of PR #19](https://github.com/yubiuser/pihole_adlist_tool/pull/19) 
+
 ---
-**Cave**
+**Caveat**
 
-Depending on the number of enabled adlists and the number of visited domains in the selected time period the calculation might take some time - please be patient.
-
+- Depending on the number of enabled adlists and the number of visited domains in the selected time period the calculation might take some time - please be patient.
 On my [NanoPi NeoPlus2](http://wiki.friendlyarm.com/wiki/index.php/NanoPi_NEO_Plus2)  (ARM, Quad-core Cortex A53)  it takes ~17-18sec to analyse 2.3 million queries from pihole-ftl.db and 347603 domains in gravity.db
+
+- Analysis of regex blacklist can take minutes easily!
+
+- While lists that have attracted no or only very few hits in the analysis are prime candidates for removal, you should also consider the type of blocklist before you ultimately decide do remove a list, e.g. you may want to keep malware or telemetry focused blocklists nonetheless.
 
 ---
 **Requirements**
@@ -70,6 +76,7 @@ options:
     -s [total/domains/hits/unique]   Set sorting order to total domains, domains covered, hits covered or unique covered domains DESC. (Default sorting: id ASC)
     -u                               Show covered unique domains
     -a                               Run in 'automatic mode'. No user input is requiered at all, assuming default choice would be to leave everything untouched.
+    -r                               Analyse regex as well. Depending on the amount of domains and regex this might take a while.
     -h                               Show this help dialog
 
 ```
