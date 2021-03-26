@@ -171,7 +171,13 @@ exit 1
 # use pihole-FTL's build-in sql shell
 # putting this in a function allows to easily change to another sqlite engine one day if necssary
 sqlite () {
- pihole-FTL sqlite3 "$@"
+if [ "$PIHOLE_DOCKER" = 0 ];
+    then 
+         pihole-FTL sqlite3 "$@"
+    else
+        docker exec $CONTAINER_ID pihole-FTL sqlite3 "$@"
+fi
+
 }
 
 # use declare to save the sqlite function, which will be passed by bash -c to the sudo commands 
@@ -217,7 +223,13 @@ fi
 
 
 # get Pi-hole's dnsmasq version
-PIHOLE_DNSMASQ_VERSION=$(pihole-FTL -vv |awk '/dnsmasq/{getline; print substr($2,9)}')
+if [ "$PIHOLE_DOCKER" = 0 ];
+    then 
+        PIHOLE_DNSMASQ_VERSION=$(pihole-FTL -vv |awk '/dnsmasq/{getline; print substr($2,9)}')
+    else
+        PIHOLE_DNSMASQ_VERSION=$(docker exec $CONTAINER_ID pihole-FTL -vv |awk '/dnsmasq/{getline; print substr($2,9)}')
+fi
+
 
 # Enforce an up-to-date pihole version. This also guarantees that this script gets all necessary information
 if [ "$(printf '%s\n' "2.85" "$PIHOLE_DNSMASQ_VERSION" | sort -V | head -n1)" = "2.85" ]; then :
@@ -243,10 +255,26 @@ esac
 
 echo -e "\n   ++++++++ Info ++++++++\n"
 
+# running Pi-hole in Docker?
+if [ "$PIHOLE_DOCKER" = 0 ];
+    then 
+        echo -e "  [i]  PIHOLE_DOCKER: No"
+    else
+        echo -e "  [i]  PIHOLE_DOCKER: Yes"
+fi
+
+
 # print Pi-hole FTL version and SQLite version
 echo -e "  [i]  PIHOLE_DNSMASQ_VERSION: $PIHOLE_DNSMASQ_VERSION"
 
-SQLITE_VERSION=$(pihole-FTL sqlite3 --version|awk '{print $1}')
+
+if [ "$PIHOLE_DOCKER" = 0 ];
+    then 
+        SQLITE_VERSION=$(pihole-FTL sqlite3 --version|awk '{print $1}')
+    else
+        SQLITE_VERSION=$(docker exec $CONTAINER_ID pihole-FTL sqlite3 --version|awk '{print $1}')
+fi
+
 echo -e "  [i]  SQLITE_VERSION: $SQLITE_VERSION"
 
 # print number of requested days
