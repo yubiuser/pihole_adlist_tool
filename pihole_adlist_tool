@@ -56,6 +56,10 @@ NUM_DOMAINS_BLOCKED_BY_REGEX=
 PIHOLE_DNSMASQ_VERSION=
 SQLITE_VERSION=
 
+# Docker variables
+PIHOLE_DOCKER=
+CONTAINER_ID=
+
 # variables for menu selection
 AUTOMATIC_MODE=0
 declare -i ENABLE_ALL_ADLISTS_FOR_ANALYSIS
@@ -195,6 +199,22 @@ done
 ### warm-up ######
 
 warm_up() {
+
+# figure out if Pi-hole runs in docker
+if command -v pihole &> /dev/null
+    then 
+        PIHOLE_DOCKER=0
+    else
+        if (command -v docker &> /dev/null) && [ "$(docker ps -q -f status="running" -f name="pihole")" ]
+            then
+                PIHOLE_DOCKER=1
+                CONTAINER_ID=$(docker ps -f "name=pihole" -q)
+            else
+                echo -e "\n\n  [✗]  ${bold}No Pi-hole installation detected. Exiting.${normal}"
+                exit 1
+        fi
+fi
+
 
 # get Pi-hole's dnsmasq version
 PIHOLE_DNSMASQ_VERSION=$(pihole-FTL -vv |awk '/dnsmasq/{getline; print substr($2,9)}')
