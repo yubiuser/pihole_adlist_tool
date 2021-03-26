@@ -59,6 +59,7 @@ SQLITE_VERSION=
 # Docker variables
 PIHOLE_DOCKER=
 CONTAINER_ID=
+DOCKER_ETC_PIHOLE_DIR=
 
 # variables for menu selection
 AUTOMATIC_MODE=0
@@ -206,7 +207,7 @@ done
 
 warm_up() {
 
-# figure out if Pi-hole runs in docker
+# figure out if Pi-hole runs in docker and adjust location of databases accordingly
 if command -v pihole &> /dev/null
     then 
         PIHOLE_DOCKER=0
@@ -215,6 +216,9 @@ if command -v pihole &> /dev/null
             then
                 PIHOLE_DOCKER=1
                 CONTAINER_ID=$(docker ps -f "name=pihole" -q)
+                DOCKER_ETC_PIHOLE_DIR=$(docker inspect -f '{{ .Mounts }}' $CONTAINER_ID |awk -F " " '{print $8}')
+                PIHOLE_ROOT=$DOCKER_ETC_PIHOLE_DIR
+
             else
                 echo -e "\n\n  [✗]  ${bold}No Pi-hole installation detected. Exiting.${normal}"
                 exit 1
@@ -596,15 +600,14 @@ NUM_GRAVITY_UNIQUE_DOMAINS=$(sqlite $GRAVITY "SELECT value FROM info WHERE prope
 echo
 echo "  [i]  You have ${bold}"$NUM_ADLISTS" adlists${normal} configured ("$NUM_ADLISTS_ENABLED" enabled)" 
 echo "  [i]  Your gravity.db contains ${bold}"$NUM_GRAVITY_UNIQUE_DOMAINS" unique domains${normal}"
-
 echo "  [i]  Since "$DATE_FIRST_ANALYZED" ${bold}"$NUM_DOMAINS_BLOCKED" different domains${normal} from your adlists have been blocked ${bold}"$HITS_TOTAL" times${normal} in total"
 echo "       (blocked directly by gravity or during deep CNAME inspection)"
 echo "  [i]  Using you current adlist configuration ${bold}"$NUM_DOMAINS_BLOCKED_CURRENT" domains${normal} would have been blocked ${bold}"$HITS_TOTAL_CURRENT" times${normal}"
 
+echo
+echo
+echo
 
-echo
-echo
-echo
 
 if [ "$BLACKLIST_GRAVITY" -ne 0 ]; then
     echo
@@ -743,7 +746,6 @@ if [ "$FURTHER_ACTION" -eq 2 ]; then
 fi
 
 if [ "$FURTHER_ACTION" -eq 3 ]; then
-    
     echo
     echo "  [i]  Enabling minimum number of adlists that cover all domains that would have been blocked...."
     sudo bash -c "$SUDO_SQLITE; sqlite $GRAVITY 'UPDATE adlist SET enabled=0;'"
