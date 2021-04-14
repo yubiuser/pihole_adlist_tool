@@ -199,8 +199,8 @@ warm_up() {
 # get Pi-hole's dnsmasq version
 PIHOLE_DNSMASQ_VERSION=$(pihole-FTL -vv |awk '/dnsmasq/{getline; print substr($2,9)}')
 
-# Enforce an up-to-date pihole version. This also guarantees that the new adlist-filename schema is used, sqlite shell is exposed and CNAME Data is availabe. 
-if [ "$(printf '%s\n' "2.83" "$PIHOLE_DNSMASQ_VERSION" | sort -V | head -n1)" = "2.83" ]; then :
+# Enforce an up-to-date pihole version. This also guarantees that this script gets all necessary information
+if [ "$(printf '%s\n' "2.85" "$PIHOLE_DNSMASQ_VERSION" | sort -V | head -n1)" = "2.85" ]; then :
     else
         echo -e "\n\n  [✗]  ${bold}You're running an old Pi-hole version which is missing important security updates. Please upgrade.${normal}"
         exit 1
@@ -459,7 +459,7 @@ EOF
 # get all data from $PIHOLE_FTL and $GRAVITY
 
 # 1.) select all domains from pihole-ftl.db that that are also found in gravity.db. Depending on -d n this is limited to the last n days 
-# 2.) copies id, enable, address from gravity.adlist to table adlist
+# 2.) copies id, enable, address, number from gravity.adlist to table adlist
 # 3.) strip gravity's gravity table to domains that have been visited (are in blocked_domains table)
 # 4.) select all domains that are on the blacklist and also found in gravity_strip
 # 5.) update blacklist_gravity with the number of hits for each domain (must be done before CNAME handling, as this adds hits to domains found during CNAME instection) 
@@ -481,7 +481,7 @@ sqlite -cmd ".timeout 5000" $TEMP_DB << EOF
 
     INSERT INTO blocked_domains(domain, hits) SELECT domain, COUNT(domain) FROM pihole_ftl_db.queries WHERE EXISTS (select 1 from gravity_db.gravity where gravity.domain=queries.domain) AND id>=${FTL_ID} GROUP BY domain ORDER BY COUNT(domain) DESC;
     
-    INSERT INTO adlist (id, enabled, address) SELECT id, enabled, address FROM gravity_db.adlist ORDER BY adlist.id; 
+    INSERT INTO adlist (id, enabled, address, total_domains) SELECT id, enabled, address, number FROM gravity_db.adlist ORDER BY adlist.id; 
     
     INSERT INTO gravity_strip(domain,adlist_id) SELECT gravity_db.gravity.domain, gravity_db.gravity.adlist_id FROM gravity JOIN blocked_domains ON blocked_domains.domain = gravity.domain;
     
@@ -529,17 +529,6 @@ sqlite $TEMP_DB << EOF
     INSERT INTO info (property, value) Select 'BLACKLIST_CNAME', COUNT(*) FROM blacklist_cname;
 .exit
 EOF
-
-
-# Table adlist is updated with total number of domains for each id (adlist)
-# Since commit 73963fecda6dc65b10d1dd3e43a5931dc531304a to pihole's core, locally saved adlist copies contain the adlist_id in the filename.
-# We can use that to count the lines in each file and use the adlist_id to attribute it to the corresponding adlist in TEMP_DB
-# This is faster than to count the domains for each adlist from gravity_db
-# note: in a next Pi-hole version, Pi-hole will store the number of domains for each adlist as additional info. This can then be used.
-
-grep -c . $PIHOLE_ROOT/list* |awk -F '[.:]' '{print $2 " "$NF}' | while read adlist_id count; do
-             sqlite $TEMP_DB "UPDATE adlist SET total_domains="${count}" WHERE id="${adlist_id}";"
-done
 
 
 # get some statistics
