@@ -56,6 +56,10 @@ NUM_DOMAINS_BLOCKED_BY_REGEX=
 PIHOLE_DNSMASQ_VERSION=
 SQLITE_VERSION=
 
+# Docker variables
+PIHOLE_DOCKER=
+CONTAINER_ID=
+
 # variables for menu selection
 AUTOMATIC_MODE=0
 declare -i ENABLE_ALL_ADLISTS_FOR_ANALYSIS
@@ -153,7 +157,14 @@ echo "       ${bold}"$NUM_DOMAINS_BLOCKED_FUTURE"${normal} domains are covered b
 remove_temp_database () {
 echo
 echo -e "  [i]  Removing temporary database..." 
-rm -f $TEMP_DB
+if [ "$PIHOLE_DOCKER" = 0 ];
+    then 
+         rm -f $TEMP_DB
+    else
+        docker exec $CONTAINER_ID rm -f $TEMP_DB
+fi
+
+
 echo -e "  [✓]  Temporary database removed\n"
 }
 
@@ -167,7 +178,13 @@ exit 1
 # use pihole-FTL's build-in sql shell
 # putting this in a function allows to easily change to another sqlite engine one day if necssary
 sqlite () {
- pihole-FTL sqlite3 "$@"
+if [ "$PIHOLE_DOCKER" = 0 ];
+    then 
+         pihole-FTL sqlite3 "$@"
+    else
+        docker exec -i $CONTAINER_ID pihole-FTL sqlite3 "$@"
+fi
+
 }
 
 # use declare to save the sqlite function, which will be passed by bash -c to the sudo commands 
@@ -196,8 +213,31 @@ done
 
 warm_up() {
 
+# figure out if Pi-hole runs in docker
+if command -v pihole &> /dev/null
+    then 
+        PIHOLE_DOCKER=0
+    else
+        if (command -v docker &> /dev/null) && [ "$(docker ps -q -f status="running" -f name="pihole")" ]
+            then
+                PIHOLE_DOCKER=1
+                CONTAINER_ID=$(docker ps -f "name=pihole" -q)
+
+            else
+                echo -e "\n\n  [✗]  ${bold}No Pi-hole installation detected. Exiting.${normal}"
+                exit 1
+        fi
+fi
+
+
 # get Pi-hole's dnsmasq version
-PIHOLE_DNSMASQ_VERSION=$(pihole-FTL -vv |awk '/dnsmasq/{getline; print substr($2,9)}')
+if [ "$PIHOLE_DOCKER" = 0 ];
+    then 
+        PIHOLE_DNSMASQ_VERSION=$(pihole-FTL -vv |awk '/dnsmasq/{getline; print substr($2,9)}')
+    else
+        PIHOLE_DNSMASQ_VERSION=$(docker exec $CONTAINER_ID pihole-FTL -vv |awk '/dnsmasq/{getline; print substr($2,9)}')
+fi
+
 
 # Enforce an up-to-date pihole version. This also guarantees that this script gets all necessary information
 if [ "$(printf '%s\n' "2.85" "$PIHOLE_DNSMASQ_VERSION" | sort -V | head -n1)" = "2.85" ]; then :
@@ -223,10 +263,26 @@ esac
 
 echo -e "\n   ++++++++ Info ++++++++\n"
 
+# running Pi-hole in Docker?
+if [ "$PIHOLE_DOCKER" = 0 ];
+    then 
+        echo -e "  [i]  PIHOLE_DOCKER: No"
+    else
+        echo -e "  [i]  PIHOLE_DOCKER: Yes"
+fi
+
+
 # print Pi-hole FTL version and SQLite version
 echo -e "  [i]  PIHOLE_DNSMASQ_VERSION: $PIHOLE_DNSMASQ_VERSION"
 
-SQLITE_VERSION=$(pihole-FTL sqlite3 --version|awk '{print $1}')
+
+if [ "$PIHOLE_DOCKER" = 0 ];
+    then 
+        SQLITE_VERSION=$(pihole-FTL sqlite3 --version|awk '{print $1}')
+    else
+        SQLITE_VERSION=$(docker exec $CONTAINER_ID pihole-FTL sqlite3 --version|awk '{print $1}')
+fi
+
 echo -e "  [i]  SQLITE_VERSION: $SQLITE_VERSION"
 
 # print number of requested days
@@ -383,7 +439,13 @@ if [ "$ENABLE_ALL_ADLISTS_FOR_ANALYSIS" -eq 1 ]; then
                 echo
                 echo "  [i]  Starting gravity"
                 echo
-                pihole -g
+                if [ "$PIHOLE_DOCKER" = 0 ];
+                     then 
+                        pihole -g
+                    else
+                        docker exec $CONTAINER_ID pihole -g
+                fi
+                
                 echo
                 echo "  [✓]  Gravity update finished"
                 echo
@@ -405,12 +467,23 @@ fi
 if [ "$ENABLE_ALL_ADLISTS_FOR_ANALYSIS" -eq 2 ]; then
 
     echo "  [i]  Enabling all adlists...."
-    sudo bash -c "$SUDO_SQLITE; sqlite $GRAVITY 'UPDATE adlist SET enabled=1;'"
+    if [ "$PIHOLE_DOCKER" = 0 ];
+        then 
+            sudo bash -c "$SUDO_SQLITE; sqlite $GRAVITY 'UPDATE adlist SET enabled=1;'"
+        else
+           sqlite $GRAVITY "UPDATE adlist SET enabled=1;"
+    fi 
+    
     echo
     echo
     echo "  [i]  Starting gravity"
     echo
-    pihole -g
+    if [ "$PIHOLE_DOCKER" = 0 ];
+        then 
+            pihole -g
+        else
+           docker exec $CONTAINER_ID pihole -g
+    fi
     echo 
     echo "  [✓]  Gravity update finished"
     echo
@@ -548,15 +621,14 @@ NUM_GRAVITY_UNIQUE_DOMAINS=$(sqlite $GRAVITY "SELECT value FROM info WHERE prope
 echo
 echo "  [i]  You have ${bold}"$NUM_ADLISTS" adlists${normal} configured ("$NUM_ADLISTS_ENABLED" enabled)" 
 echo "  [i]  Your gravity.db contains ${bold}"$NUM_GRAVITY_UNIQUE_DOMAINS" unique domains${normal}"
-
 echo "  [i]  Since "$DATE_FIRST_ANALYZED" ${bold}"$NUM_DOMAINS_BLOCKED" different domains${normal} from your adlists have been blocked ${bold}"$HITS_TOTAL" times${normal} in total"
 echo "       (blocked directly by gravity or during deep CNAME inspection)"
 echo "  [i]  Using you current adlist configuration ${bold}"$NUM_DOMAINS_BLOCKED_CURRENT" domains${normal} would have been blocked ${bold}"$HITS_TOTAL_CURRENT" times${normal}"
 
+echo
+echo
+echo
 
-echo
-echo
-echo
 
 if [ "$BLACKLIST_GRAVITY" -ne 0 ]; then
     echo
@@ -682,12 +754,31 @@ if [ "$FURTHER_ACTION" -eq 2 ]; then
     
     echo
     echo "  [i]  Enabling adlists with covered unique domains...."
-    sudo bash -c "$SUDO_SQLITE; sqlite $GRAVITY 'UPDATE adlist SET enabled=0;'"
+    if [ "$PIHOLE_DOCKER" = 0 ];
+        then 
+            sudo bash -c "$SUDO_SQLITE; sqlite $GRAVITY 'UPDATE adlist SET enabled=0;'"
+        else
+           sqlite $GRAVITY "UPDATE adlist SET enabled=0;"
+    fi
+
     adlist_conf_unique_enabled=(`sqlite $TEMP_DB "select id from adlist where unique_domains_covered IS NOT NULL;"`)
     for adlist_id in "${adlist_conf_unique_enabled[@]}"; do
-       sudo bash -c "$SUDO_SQLITE; sqlite $GRAVITY 'UPDATE adlist SET enabled=1 where id=$adlist_id;'"
+
+        if [ "$PIHOLE_DOCKER" = 0 ];
+            then 
+                sudo bash -c "$SUDO_SQLITE; sqlite $GRAVITY 'UPDATE adlist SET enabled=1 where id=$adlist_id;'"
+            else
+                sqlite $GRAVITY "UPDATE adlist SET enabled=1 where id=$adlist_id;'"
+        fi 
     done
-    pihole restartdns reload-lists    
+
+    if [ "$PIHOLE_DOCKER" = 0 ];
+        then 
+            pihole restartdns reload-lists 
+        else
+            docker exec $CONTAINER_ID pihole restartdns reload-lists 
+     fi
+       
     echo
     echo "  [✓]  Adlists with covered unique domains enabled"
     echo
@@ -695,10 +786,15 @@ if [ "$FURTHER_ACTION" -eq 2 ]; then
 fi
 
 if [ "$FURTHER_ACTION" -eq 3 ]; then
-    
     echo
     echo "  [i]  Enabling minimum number of adlists that cover all domains that would have been blocked...."
-    sudo bash -c "$SUDO_SQLITE; sqlite $GRAVITY 'UPDATE adlist SET enabled=0;'"
+    if [ "$PIHOLE_DOCKER" = 0 ];
+        then 
+            sudo bash -c "$SUDO_SQLITE; sqlite $GRAVITY 'UPDATE adlist SET enabled=0;'"
+        else
+           sqlite $GRAVITY "UPDATE adlist SET enabled=0;"
+    fi 
+
     
     # get all adlist_ids with unique domains (same as $adlist_conf_unique_enabled)
     # create a copy of gravity_strip where domains can be removed from (gravity_strip is used later again)
@@ -731,10 +827,21 @@ if [ "$FURTHER_ACTION" -eq 3 ]; then
     echo "  [i]  Enabling adlists with id ${adlist_conf_minimal_enabled[@]}"
 
     for adlist_id in "${adlist_conf_minimal_enabled[@]}"; do
-       sudo bash -c "$SUDO_SQLITE; sqlite $GRAVITY 'UPDATE adlist SET enabled=1 where id=$adlist_id;'"
+
+        if [ "$PIHOLE_DOCKER" = 0 ];
+            then 
+                sudo bash -c "$SUDO_SQLITE; sqlite $GRAVITY 'UPDATE adlist SET enabled=1 where id=$adlist_id;'"
+            else
+                sqlite $GRAVITY "UPDATE adlist SET enabled=1 where id=$adlist_id;"
+        fi    
     done
     
-    pihole restartdns reload-lists    
+    if [ "$PIHOLE_DOCKER" = 0 ];
+        then 
+            pihole restartdns reload-lists 
+        else
+            docker exec $CONTAINER_ID pihole restartdns reload-lists 
+     fi    
    
     echo
     echo "  [✓]  Minimal number of adlists that cover all domains (that would have been blocked) enabled"
@@ -747,11 +854,31 @@ if [ "$FURTHER_ACTION" -eq 4 ]; then
 
     echo
     echo "  [i]  Restoring previous adlist configuration...."
-    sudo bash -c "$SUDO_SQLITE; sqlite $GRAVITY 'UPDATE adlist SET enabled=0;'"
+
+    if [ "$PIHOLE_DOCKER" = 0 ];
+            then 
+                sudo bash -c "$SUDO_SQLITE; sqlite $GRAVITY 'UPDATE adlist SET enabled=0;'"
+            else
+                sqlite $GRAVITY "UPDATE adlist SET enabled=0;"
+    fi
+    
     for adlist_id in "${adlist_conf_old_enabled[@]}"; do
-       sudo bash -c "$SUDO_SQLITE; sqlite $GRAVITY 'UPDATE adlist SET enabled=1 where id=$adlist_id;'"
+
+        if [ "$PIHOLE_DOCKER" = 0 ];
+            then 
+                sudo bash -c "$SUDO_SQLITE; sqlite $GRAVITY 'UPDATE adlist SET enabled=1 where id=$adlist_id;'"
+            else
+                sqlite $GRAVITY "UPDATE adlist SET enabled=1 where id=$adlist_id;"
+        fi
+       
     done
-    pihole restartdns reload-lists    
+
+    if [ "$PIHOLE_DOCKER" = 0 ];
+        then 
+            pihole restartdns reload-lists 
+        else
+            docker exec $CONTAINER_ID pihole restartdns reload-lists 
+     fi    
     echo
     echo "  [✓]  Previous adlist configuration restored"
     echo
