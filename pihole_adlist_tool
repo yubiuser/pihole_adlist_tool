@@ -90,7 +90,7 @@ print_help() {
 
         -u                               Show covered unique domains.
 
-        -a                               Run in 'automatic mode'. No user input is requiered at all, assuming default choice would be 
+        -a                               Run in 'automatic mode'. No user input is required at all, assuming default choice would be 
                                          to leave everything untouched.
 
         -r                               Analyse regex as well. Depending on the amount of domains and regex this might take a while.
