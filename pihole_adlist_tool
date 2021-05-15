@@ -1,5 +1,4 @@
 #!/bin/bash
-
 PIHOLE_ADLIST_TOOL_VERSION="2.4.0" 
 
 # define path to pihole's databases and temporary database
@@ -80,6 +79,18 @@ REGEX_ID=
 # version message
 print_version() {
     echo "Pihole Adlist Tool v${PIHOLE_ADLIST_TOOL_VERSION}"
+}
+
+# fetches latest version
+fetch_remote_version() {
+	remote_version="$(
+		curl --silent https://api.github.com/repos/yubiuser/pihole_adlist_tool/releases/latest | 
+		grep '"tag_name":' | 
+		sed -E 's/.*"([^"]+)".*/\1/'
+	)"
+	# returns the latest version tag(eg: 2.4.0). 
+	# falls back to the local known version in case of error. 
+    echo "${remote_version:-$PIHOLE_ADLIST_TOOL_VERSION}"
 }
 
 # help message
@@ -343,6 +354,12 @@ if [ "$REGEX_MODE" -eq 1 ];
     else
         echo -e "  [i]  REGEX_MODE: Disabled"
 fi        
+
+# verify if there is an update available
+remote_version=$(fetch_remote_version)
+if [ "$remote_version" != "$PIHOLE_ADLIST_TOOL_VERSION" ]; then
+	echo -e "  [i]  There is an update available: v$remote_version"
+fi
 
 echo -e "\n   ++++++++++++++++++++++\n\n"
 }
