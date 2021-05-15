@@ -1,5 +1,7 @@
 #!/bin/bash
 
+PIHOLE_ADLIST_TOOL_VERSION="2.4.0" 
+
 # define path to pihole's databases and temporary database
 TEMP_DB="/tmp/temp.db"
 PIHOLE_ROOT="/etc/pihole"
@@ -75,6 +77,11 @@ declare -a all_domains
 CURRENT_DOMAIN=
 REGEX_ID=
 
+# version message
+print_version() {
+    echo "Pihole Adlist Tool v${PIHOLE_ADLIST_TOOL_VERSION}"
+}
+
 # help message
 print_help() {
     echo  
@@ -94,6 +101,8 @@ print_help() {
                                          to leave everything untouched.
 
         -r                               Analyse regex as well. Depending on the amount of domains and regex this might take a while.
+
+        -v                               Display pihole_adlist_tool's version.
     
         -h                               Show this help dialog.
 "
@@ -194,7 +203,7 @@ SUDO_SQLITE=$(declare -f sqlite)
 trap cleanup_on_trap INT
 
 # getopts flags and assing arguments to variables
-while getopts 'd:t:s:uarh' flag; do
+while getopts 'd:t:s:uarvh' flag; do
   case "${flag}" in
     d) DAYS_REQUESTED="${OPTARG}" ;;
     t) TOP="${OPTARG}" ;;
@@ -202,6 +211,8 @@ while getopts 'd:t:s:uarh' flag; do
     u) UNIQUE=1 ;;
     a) AUTOMATIC_MODE=1 ;;
     r) REGEX_MODE=1 ;;
+    v) print_version
+        exit 0 ;;
     h) print_help
         exit 0 ;;
     *) print_help
