@@ -1,4 +1,5 @@
 #!/bin/bash
+PIHOLE_ADLIST_TOOL_VERSION="2.5.0" 
 
 # define path to pihole's databases and temporary database
 TEMP_DB="/tmp/temp.db"
@@ -75,6 +76,22 @@ declare -a all_domains
 CURRENT_DOMAIN=
 REGEX_ID=
 
+# version message
+print_version() {
+    echo "Pihole Adlist Tool v${PIHOLE_ADLIST_TOOL_VERSION}"
+}
+
+# fetches latest version
+fetch_remote_version() {
+	local remote_version="$(
+		curl --silent https://api.github.com/repos/yubiuser/pihole_adlist_tool/releases/latest | 
+		grep '"tag_name":' | 
+		awk -F \" '{print $4}'
+	)"
+	# returns the latest version tag(eg: 2.4.0).
+    echo "$remote_version"
+}
+
 # help message
 print_help() {
     echo  
@@ -94,6 +111,8 @@ print_help() {
                                          to leave everything untouched.
 
         -r                               Analyse regex as well. Depending on the amount of domains and regex this might take a while.
+
+        -v                               Display pihole_adlist_tool's version.
     
         -h                               Show this help dialog.
 "
@@ -194,7 +213,7 @@ SUDO_SQLITE=$(declare -f sqlite)
 trap cleanup_on_trap INT
 
 # getopts flags and assing arguments to variables
-while getopts 'd:t:s:uarh' flag; do
+while getopts 'd:t:s:uarvh' flag; do
   case "${flag}" in
     d) DAYS_REQUESTED="${OPTARG}" ;;
     t) TOP="${OPTARG}" ;;
@@ -202,6 +221,8 @@ while getopts 'd:t:s:uarh' flag; do
     u) UNIQUE=1 ;;
     a) AUTOMATIC_MODE=1 ;;
     r) REGEX_MODE=1 ;;
+    v) print_version
+        exit 0 ;;
     h) print_help
         exit 0 ;;
     *) print_help
@@ -333,6 +354,12 @@ if [ "$REGEX_MODE" -eq 1 ];
         echo -e "  [i]  REGEX_MODE: Disabled"
 fi        
 
+# verify if there is an update available
+remote_version=$(fetch_remote_version)
+if [ -n "$remote_version" -a "$remote_version" != "$PIHOLE_ADLIST_TOOL_VERSION" ]; then
+	echo -e "  [i]  There is an update available: $remote_version"
+fi
+
 echo -e "\n   ++++++++++++++++++++++\n\n"
 }
 
@@ -343,7 +370,7 @@ echo -e "\n   ++++++++++++++++++++++\n\n"
 
 echo
 echo
-echo "  ${bold}*** Pihole Adlist Tool ***${normal}"
+echo "  ${bold}*** Pihole Adlist Tool $PIHOLE_ADLIST_TOOL_VERSION ***${normal}"
 echo
 
 warm_up
