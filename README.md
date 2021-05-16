@@ -6,7 +6,7 @@ This script tries to provide you with a bunch of information that enables you to
 ---
 **The script outputs**
 
--  the number of adlists (and how many are enabled)
+- the number of adlists (and how many are enabled)
 - the number of unique domains in your gravity.db
 - the number of blocked domains as reported by pihole ('blocking status == blocked by gravity' or blocking status == blocked by gravity+blocked during CNAME inspection) and how often those domains have been blocked ('hits')
 - the number of covered domains and how often those would have been blocked ('hits')
@@ -63,8 +63,9 @@ options:
     -t [Num]                         Show top blocked domains. [Num] defines the number to show.
     -s [total/domains/hits/unique]   Set sorting order to total domains, domains covered, hits covered or unique covered domains DESC. (Default sorting: id ASC)
     -u                               Show covered unique domains
-    -a                               Run in 'automatic mode'. No user input is requiered at all, assuming default choice would be to leave everything untouched.
+    -a                               Run in 'automatic mode'. No user input is required at all, assuming default choice would be to leave everything untouched.
     -r                               Analyse regex as well. Depending on the amount of domains and regex this might take a while.
+    -v                               Display pihole_adlist_tool's version.
     -h                               Show this help dialog
 
 ```
