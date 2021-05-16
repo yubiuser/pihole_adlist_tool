@@ -370,7 +370,7 @@ echo -e "\n   ++++++++++++++++++++++\n\n"
 
 echo
 echo
-echo "  ${bold}*** Pihole Adlist Tool ***${normal}"
+echo "  ${bold}*** Pihole Adlist Tool $PIHOLE_ADLIST_TOOL_VERSION ***${normal}"
 echo
 
 warm_up
