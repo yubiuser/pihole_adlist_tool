@@ -1,5 +1,5 @@
 #!/bin/bash
-PIHOLE_ADLIST_TOOL_VERSION="2.5.0"
+PIHOLE_ADLIST_TOOL_VERSION="2.5.1"
 
 # define path to pihole's databases and temporary database
 TEMP_DB="/tmp/temp.db"
@@ -90,20 +90,6 @@ fetch_remote_version() {
 	)"
 	# returns the latest version tag(eg: 2.4.0).
     echo "$remote_version"
-}
-
-spinner() {
-    local pid=$1
-    local delay=0.50
-    local spinstr='/-|'
-    while [ "$(ps a | awk '{print $1}' | grep "$pid")" ]; do
-        local temp=${spinstr#?}
-        printf " [%c]  " "$spinstr"
-        local spinstr=$temp${spinstr%"$temp"}
-        sleep $delay
-        printf "\b\b\b\b\b\b"
-    done
-    printf "    \b\b\b\b"
 }
 
 # help message
@@ -220,7 +206,7 @@ fi
 
 }
 
-# use declare to save the sqlite function, which will be passed by bash -c to the sudo commands 
+# use declare to save the sqlite function, which will be passed by bash -c to the sudo commands
 # https://unix.stackexchange.com/questions/269078/executing-a-bash-script-function-with-sudo
 SUDO_SQLITE=$(declare -f sqlite)
 
@@ -996,7 +982,7 @@ EOF
                 pihole-FTL regex-test $CURRENT_DOMAIN |grep -E -o "DB ID [0-9]*"|awk '{print $3}' | while read REGEX_ID; do
                     sqlite $TEMP_DB "INSERT INTO domain_by_regex(domain, regex_id) VALUES ('$CURRENT_DOMAIN',$REGEX_ID);"
             done
-        done & spinner $!
+        done
 
 # count for each regex_id how many domains are in domain_by_regex and store it in table regex_blacklist
 
