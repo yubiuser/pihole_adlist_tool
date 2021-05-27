@@ -1,5 +1,5 @@
 #!/bin/bash
-PIHOLE_ADLIST_TOOL_VERSION="2.5.1"
+PIHOLE_ADLIST_TOOL_VERSION="2.5.2"
 
 # define path to pihole's databases and temporary database
 TEMP_DB="/tmp/temp.db"
@@ -793,7 +793,7 @@ if [ "$FURTHER_ACTION" -eq 2 ]; then
 
         if [ "$PIHOLE_DOCKER" = 0 ];
             then
-                sudo bash -c "$PIHOLE_DOCKER=0; SUDO_SQLITE; sqlite $GRAVITY 'UPDATE adlist SET enabled=1 where id=$adlist_id;'"
+                sudo bash -c "PIHOLE_DOCKER=0; $SUDO_SQLITE; sqlite $GRAVITY 'UPDATE adlist SET enabled=1 where id=$adlist_id;'"
             else
                 sqlite $GRAVITY "UPDATE adlist SET enabled=1 where id=$adlist_id;'"
         fi
