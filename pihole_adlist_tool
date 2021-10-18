@@ -1049,10 +1049,12 @@ EOF
             sqlite -column -header $TEMP_DB "SELECT * FROM domainlist_regex"
             echo
             echo
-            echo "       ${bold}"$NUM_DOMAINLIST_REGEX" domain(s)${normal} from your domainlist are covered by your regex."
+            echo "       ${bold}"$NUM_DOMAINLIST_REGEX" distinct domain(s)${normal} from your domainlist are covered by your regex."
             echo "       Please note that this tool does not take into account if your domains and regex do match"
             echo "       regarding their black/whitelist status. E.g. a whitelisted domain that is covered by a blacklist regex"
-            echo "       is counted as well."
+            echo "       is counted and reported here as well."
+            echo
+            echo "  [i]  Use 'pihole-FTL regex-test DOMAIN' to get more information about that specific domain vs the regex filters"
             echo
             echo
         fi
