@@ -261,7 +261,7 @@ fi
 
 
 # Enforce an up-to-date pihole version. This also guarantees that this script gets all necessary information
-if [ "$(printf '%s\n' "2.85" "$PIHOLE_DNSMASQ_VERSION" | sort -V | head -n1)" = "2.85" ]; then :
+if [ "$(printf '%s\n' "2.87" "$PIHOLE_DNSMASQ_VERSION" | sort -V | head -n1)" = "2.87" ]; then :
     else
         echo -e "\n\n  [✗]  ${bold}You're running an old Pi-hole version which is missing important security updates. Please upgrade.${normal}"
         exit 1
