@@ -1,5 +1,5 @@
 #!/bin/bash
-PIHOLE_ADLIST_TOOL_VERSION="2.5.2"
+PIHOLE_ADLIST_TOOL_VERSION="2.6"
 
 # define path to pihole's databases and temporary database
 TEMP_DB="/tmp/temp.db"
@@ -71,8 +71,9 @@ declare -i FURTHER_ACTION
 bold=$(tput bold)
 normal=$(tput sgr0)
 
-# variables for regex analysis
+# variables for RegEx analysis
 declare -a all_domains
+declare -a all_exact_domains
 CURRENT_DOMAIN=
 REGEX_ID=
 
@@ -110,7 +111,7 @@ print_help() {
         -a                               Run in 'automatic mode'. No user input is required at all, assuming default choice would be
                                          to leave everything untouched.
 
-        -r                               Analyse regex as well. Depending on the amount of domains and regex this might take a while.
+        -r                               Analyse RegEx as well. Depending on the amount of domains and RegEx this might take a while.
 
         -v                               Display pihole_adlist_tool's version.
 
@@ -261,7 +262,7 @@ fi
 
 
 # Enforce an up-to-date pihole version. This also guarantees that this script gets all necessary information
-if [ "$(printf '%s\n' "2.85" "$PIHOLE_DNSMASQ_VERSION" | sort -V | head -n1)" = "2.85" ]; then :
+if [ "$(printf '%s\n' "2.87" "$PIHOLE_DNSMASQ_VERSION" | sort -V | head -n1)" = "2.87" ]; then :
     else
         echo -e "\n\n  [✗]  ${bold}You're running an old Pi-hole version which is missing important security updates. Please upgrade.${normal}"
         exit 1
@@ -346,7 +347,7 @@ if [ "$UNIQUE" -eq 1 ];
         echo -e "  [i]  UNIQUE: Not shown"
 fi
 
-# print if regex should be analysed as well
+# print if RegEx should be analysed as well
 if [ "$REGEX_MODE" -eq 1 ];
     then
         echo -e "  [i]  REGEX_MODE: Enabled"
@@ -925,25 +926,26 @@ if [ "$UNIQUE" = 1 ];
         echo
 fi
 
-# analyse regex
+# analyse RegEx
 if [ "$REGEX_MODE" -eq 1 ];
     then
         echo
         echo
-        echo "  [i]  Analysing regex blacklist ....."
+        echo "  [i]  Analysing RegEx ....."
         echo "  [i]  This might take some time (minutes!) - please be patient."
         echo
         echo
 
 
-#
-# table regex_blacklist contains all blacklist regex from gravity.db
+# table all_regex contains all RegEx from gravity.db
+# table regex_black contains all blacklisted RegEx from gravity.db
 # table all_domains contains all domains (in the selected time periode) from the pihole-FTL.db (including domains from CNAME inspection)
-# table domain_by_regex contains all domains and the blocking regex
+# table domain_by_regex contains all domains and the blocking RegEx
+# table domainlist_regex contains all exact domains that are on the personal black/whitelist and coverd by RegEx as well
 
-# 1.) copy blacklisted regex info from gravity database
+# 1.) copy blacklisted RegEx info from gravity database
 # 2.) copy distinct domains from pihole-FTL.db
-# 3.) add distinct domains from pihole-FTL.db found in additional_info columen coming from CNAME inspection (type 9,10,11)
+# 3.) add distinct domains from pihole-FTL.db found in additional_info columen coming from CNAME inspection (status 9,10,11)
 # 4.) Save some statistics
 
 
@@ -951,29 +953,32 @@ sqlite -cmd ".timeout 5000" $TEMP_DB << EOF
             ATTACH DATABASE "${PIHOLE_FTL}" AS pihole_ftl_db;
             ATTACH DATABASE "${GRAVITY}?mode=ro" AS gravity_db;
 
-            CREATE table regex_blacklist (id TEXT UNIQUE, regex TEXT, enabled INTEGER, domains_covered INTEGER);
+            CREATE table all_regex (id TEXT UNIQUE, regex TEXT);
+            CREATE table regex_black (id TEXT UNIQUE, regex TEXT, enabled INTEGER, domains_covered INTEGER);
             CREATE table all_domains(domain TEXT UNIQUE);
             CREATE table domain_by_regex(domain TEXT, regex_id INTEGER);
+            CREATE table domainlist_regex(domain TEXT, regex_id INTEGER, regex TEXT);
 
-            INSERT INTO regex_blacklist(id, regex,enabled) SELECT id, domain, enabled FROM gravity_db.domainlist where type=3;
+            INSERT INTO all_regex(id, regex) SELECT id, domain FROM gravity_db.domainlist WHERE type in (2,3);
+            INSERT INTO regex_black(id, regex,enabled) SELECT id, domain, enabled FROM gravity_db.domainlist WHERE type =3;
             INSERT INTO all_domains(domain) SELECT distinct domain FROM pihole_ftl_db.queries WHERE id>=${FTL_ID};
             INSERT OR IGNORE INTO all_domains(domain) SELECT distinct additional_info FROM pihole_ftl_db.queries WHERE status in (9,10,11) AND id>=${FTL_ID};
 
             INSERT INTO info (property, value) Select 'NUM_ALL_DOMAINS', COUNT(*) FROM all_domains;
-            INSERT INTO info (property, value) Select 'NUM_REGEX', COUNT(*) FROM regex_blacklist;
-            INSERT INTO info (property, value) Select 'NUM_ENABLED_REGEX', COUNT(id) FROM regex_blacklist WHERE enabled=1;
+            INSERT INTO info (property, value) Select 'NUM_REGEX', COUNT(*) FROM regex_black;
+            INSERT INTO info (property, value) Select 'NUM_ENABLED_REGEX', COUNT(id) FROM regex_black WHERE enabled=1;
 
             DETACH DATABASE gravity_db;
             DETACH DATABASE pihole_ftl_db;
 .exit
 EOF
 
-
+# Regex vs. GRAVITY
 # copy all domains from table all_domais in array all_domains
 # interate over each domain in all_domains
-# for each domain check if it is covered by a regex (using pihole-FTL regex-test)
+# for each domain check if it is covered by a RegEx (using pihole-FTL regex-test)
 # if the test returns regex_ids, save them in domain_by_regex table
-# NOTE: pihole-FTL regex-test will test also against regex whitelist BUT this is still much faster than to create a second loop to check against each regex blacklist indiviually
+# NOTE: pihole-FTL regex-test will test also against RegEx whitelist BUT this is still much faster than to create a second loop to check against each RegEx blacklist indiviually
 
 
         all_domains=(`sqlite $TEMP_DB "SELECT domain FROM all_domains"`)
@@ -984,32 +989,79 @@ EOF
             done
         done
 
-# count for each regex_id how many domains are in domain_by_regex and store it in table regex_blacklist
+# count for each RegEx_id how many domains are in domain_by_regex and store it in table regex_black
 
-        sqlite $TEMP_DB "UPDATE regex_blacklist SET domains_covered=(SELECT COUNT(regex_id) from domain_by_regex WHERE id=regex_id GROUP BY regex_id );"
+        sqlite $TEMP_DB "UPDATE regex_black SET domains_covered=(SELECT COUNT(regex_id) from domain_by_regex WHERE id=regex_id GROUP BY regex_id );"
+
+
+# Regex vs domainlist
+# copy all exact black/whitelisted domains from gravity's domainlist (type=1 or type=0)
+# interate over each domain
+# for each domain check if it is covered by a RegEx (using pihole-FTL regex-test)
+# if the test returns regex_ids, save them in domainlist_regex
+
+        all_exact_domains=(`sqlite $GRAVITY "SELECT domain FROM domainlist WHERE type in (0,1);"`)
+
+        for CURRENT_DOMAIN in "${all_exact_domains[@]}"; do
+          pihole-FTL regex-test $CURRENT_DOMAIN |grep -E -o "DB ID [0-9]*"|awk '{print $3}' | while read REGEX_ID; do
+              sqlite $TEMP_DB "INSERT INTO domainlist_regex(domain, regex_id) VALUES ('$CURRENT_DOMAIN',$REGEX_ID);"
+            done
+        done
+
+        sqlite $TEMP_DB "UPDATE domainlist_regex SET regex=(SELECT regex from all_regex WHERE id=regex_id);"
 
 # get stats
-        # the number of different domains that would have been blocked by regex with the current regex configuration
-        sqlite $TEMP_DB "INSERT INTO info (property, value) Select 'NUM_DOMAINS_BLOCKED_BY_REGEX', COUNT (distinct domain) FROM domain_by_regex JOIN regex_blacklist ON regex_id=id where enabled=1 ;"
+        # the number of different domains that would have been blocked by RegEx with the current RegEx configuration
+        sqlite $TEMP_DB "INSERT INTO info (property, value) Select 'NUM_DOMAINS_BLOCKED_BY_REGEX', COUNT (distinct domain) FROM domain_by_regex JOIN regex_black ON regex_id=id where enabled=1 ;"
+
+        # the number of domainlist domains coverd by RegEx
+        sqlite $TEMP_DB "INSERT INTO info (property, value) Select 'DOMAINLIST_REGEX', COUNT(distinct domain) FROM domainlist_regex;"
 
         NUM_ALL_DOMAINS=$(sqlite $TEMP_DB "SELECT value FROM info where property='NUM_ALL_DOMAINS';")
         NUM_REGEX=$(sqlite $TEMP_DB "SELECT value FROM info where property='NUM_REGEX';")
         NUM_ENABLED_REGEX=$(sqlite $TEMP_DB  "SELECT value FROM info WHERE property ='NUM_ENABLED_REGEX';")
         NUM_DOMAINS_BLOCKED_BY_REGEX=$(sqlite $TEMP_DB  "SELECT value FROM info WHERE property ='NUM_DOMAINS_BLOCKED_BY_REGEX';")
+        NUM_DOMAINLIST_REGEX=$(sqlite $TEMP_DB  "SELECT value FROM info WHERE property ='DOMAINLIST_REGEX';")
 
         echo
         echo
         echo
-        echo "  [i]  ${bold}Regex coverage${normal}"
-        # prints the regex table
+        echo "  [i]  ${bold}Blacklist RegEx coverage${normal}"
+        # prints the RegEx table
         echo
         echo
-        sqlite -column -header $TEMP_DB "SELECT id, enabled, domains_covered, regex FROM regex_blacklist;"
+        sqlite -column -header $TEMP_DB "SELECT id, enabled, domains_covered, regex FROM regex_black;"
         echo
         echo
         echo "  [i]  Since "$DATE_FIRST_ANALYZED" you have been visiting ${bold}"$NUM_ALL_DOMAINS" different domains${normal}."
-        echo "       You have ${bold}"$NUM_REGEX" blacklist regex${normal} configured ("$NUM_ENABLED_REGEX" enabled)"
-        echo "       With your enabled blacklist regex you would have covered ${bold}"$NUM_DOMAINS_BLOCKED_BY_REGEX" different domains${normal}."
+        echo "       You have ${bold}"$NUM_REGEX" blacklist RegEx${normal} configured ("$NUM_ENABLED_REGEX" enabled)"
+        echo "       With your enabled blacklist RegEx you would have covered ${bold}"$NUM_DOMAINS_BLOCKED_BY_REGEX" different domains${normal}."
+        echo
+        echo "  [i]  Please note: the internal Pi-hole RegEx test used here only checks domains against ${bold}enabled RegEx${normal}."
+        echo "       Therefor, currently disabled RegEx will always have 0 domains covered."
+
+
+        if [ "$NUM_DOMAINLIST_REGEX" -ne 0 ]; then
+            echo
+            echo
+            echo "  [i]  ${bold}You hit a special case${normal}"
+            echo "       Your personal domainlist (black- and whitelist) contains at least one domain that is also coverd by at least"
+            echo "       one of your RegEx (black- and whitelist)"
+            echo
+            echo
+            sqlite -column -header $TEMP_DB "SELECT * FROM domainlist_regex"
+            echo
+            echo
+            echo "       ${bold}"$NUM_DOMAINLIST_REGEX" distinct domain(s)${normal} from your domainlist are covered by your RegEx."
+            echo "       Please note that this tool does not take into account if your domains and RegEx do match"
+            echo "       regarding their black/whitelist status. E.g. a whitelisted domain that is covered by a blacklist RegEx"
+            echo "       is counted and reported here as well."
+            echo
+            echo "  [i]  Use 'pihole-FTL regex-test DOMAIN' to get more information about that specific domain vs the RegEx filters"
+            echo
+            echo
+        fi
 fi
+
 
 remove_temp_database
