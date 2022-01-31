@@ -85,7 +85,8 @@ print_version() {
 
 # fetches latest version
 fetch_remote_version() {
-	local remote_version="$(
+	local remote_version
+	remote_version="$(
 		curl --silent https://api.github.com/repos/yubiuser/pihole_adlist_tool/releases/latest |
 		grep '"tag_name":' |
 		awk -F \" '{print $4}'
@@ -123,7 +124,8 @@ print_help() {
 #convert timestamp to date
 
 timestamp2date () {
-    local DATE=$(date -d @$1 +%d.%m.%Y%t%k:%M:%S)
+    local DATE
+    DATE=$(date -d @"$1" +%d.%m.%Y%t%k:%M:%S)
     echo "$DATE"
 }
 
@@ -132,8 +134,8 @@ timestamp2date () {
 
 set_timestamps () {
 
-    TIMESTAMP_FIRST_QUERY=$(sqlite $PIHOLE_FTL "SELECT MIN(timestamp) FROM queries;")
-    TIMESTAMP_LAST_QUERY=$(sqlite $PIHOLE_FTL "SELECT MAX(timestamp) FROM queries;")
+    TIMESTAMP_FIRST_QUERY=$(sqlite "$PIHOLE_FTL" "SELECT MIN(timestamp) FROM queries;")
+    TIMESTAMP_LAST_QUERY=$(sqlite "$PIHOLE_FTL" "SELECT MAX(timestamp) FROM queries;")
     if [ "$DAYS_REQUESTED" = 0 ];
         then
             TIMESTAMP_REQUESTED=$TIMESTAMP_FIRST_QUERY
@@ -141,16 +143,16 @@ set_timestamps () {
             TIMESTAMP_REQUESTED=$(date +%s)
             TIMESTAMP_REQUESTED="$TIMESTAMP_REQUESTED-86400*${DAYS_REQUESTED}"
     fi
-    TIMESTAMP_FIRST_ANALYZED=$(sqlite $PIHOLE_FTL "SELECT min(timestamp) FROM queries WHERE timestamp>=$TIMESTAMP_REQUESTED;")
+    TIMESTAMP_FIRST_ANALYZED=$(sqlite "$PIHOLE_FTL" "SELECT min(timestamp) FROM queries WHERE timestamp>=$TIMESTAMP_REQUESTED;")
 }
 
 # converts dates
 
 set_dates () {
-    DATE_FIRST_QUERY="$(timestamp2date $TIMESTAMP_FIRST_QUERY)"
-    DATE_LAST_QUERY="$(timestamp2date $TIMESTAMP_LAST_QUERY)"
-    DATE_REQUESTED="$(timestamp2date $TIMESTAMP_REQUESTED)"
-    DATE_FIRST_ANALYZED="$(timestamp2date $TIMESTAMP_FIRST_ANALYZED)"
+    DATE_FIRST_QUERY="$(timestamp2date "$TIMESTAMP_FIRST_QUERY")"
+    DATE_LAST_QUERY="$(timestamp2date "$TIMESTAMP_LAST_QUERY")"
+    DATE_REQUESTED="$(timestamp2date "$TIMESTAMP_REQUESTED")"
+    DATE_FIRST_ANALYZED="$(timestamp2date "$TIMESTAMP_FIRST_ANALYZED")"
 
 }
 
@@ -169,8 +171,8 @@ EOF
 NUM_DOMAINS_BLOCKED_FUTURE=$(sqlite $TEMP_DB "SELECT value FROM info where property='NUM_DOMAINS_BLOCKED_FUTURE';")
 
 echo
-echo "  [✓]  Of the ${bold}"$NUM_DOMAINS_BLOCKED_CURRENT"${normal} domains that would have been blocked by the adlist configuration you chose to analyze,"
-echo "       ${bold}"$NUM_DOMAINS_BLOCKED_FUTURE"${normal} domains are covered by your current adlist configuration."
+echo "  [i]  Of the ${bold}$NUM_DOMAINS_BLOCKED_CURRENT${normal} domains that would have been blocked by the adlist configuration you chose to analyze,"
+echo "       ${bold}$NUM_DOMAINS_BLOCKED_FUTURE${normal} domains are covered by your current adlist configuration."
 
 }
 
@@ -182,16 +184,16 @@ if [ "$PIHOLE_DOCKER" = 0 ];
     then
          rm -f $TEMP_DB
     else
-        docker exec $CONTAINER_ID rm -f $TEMP_DB
+        docker exec "$CONTAINER_ID" rm -f $TEMP_DB
 fi
 
 
-echo -e "  [✓]  Temporary database removed\n"
+echo -e "  [i]  Temporary database removed\n"
 }
 
 # cleanup on trap
 cleanup_on_trap () {
-echo -e "\n\n  [✗]  ${bold}User-abort detected!${normal}"
+echo -e "\n\n  [x]  ${bold}User-abort detected!${normal}"
 remove_temp_database
 exit 1
 }
@@ -203,7 +205,7 @@ if [ "$PIHOLE_DOCKER" = 0 ];
     then
          pihole-FTL sqlite3 "$@"
     else
-        docker exec -i $CONTAINER_ID pihole-FTL sqlite3 "$@"
+        docker exec -i "$CONTAINER_ID" pihole-FTL sqlite3 "$@"
 fi
 
 }
@@ -258,7 +260,7 @@ if [ "$PIHOLE_DOCKER" = 0 ];
     then
         PIHOLE_DNSMASQ_VERSION=$(pihole-FTL -vv |awk '/dnsmasq/{getline; print substr($2,9)}')
     else
-        PIHOLE_DNSMASQ_VERSION=$(docker exec $CONTAINER_ID pihole-FTL -vv |awk '/dnsmasq/{getline; print substr($2,9)}')
+        PIHOLE_DNSMASQ_VERSION=$(docker exec "$CONTAINER_ID" pihole-FTL -vv |awk '/dnsmasq/{getline; print substr($2,9)}')
 fi
 
 
@@ -303,7 +305,7 @@ if [ "$PIHOLE_DOCKER" = 0 ];
     then
         SQLITE_VERSION=$(pihole-FTL sqlite3 --version|awk '{print $1}')
     else
-        SQLITE_VERSION=$(docker exec $CONTAINER_ID pihole-FTL sqlite3 --version|awk '{print $1}')
+        SQLITE_VERSION=$(docker exec "$CONTAINER_ID" pihole-FTL sqlite3 --version|awk '{print $1}')
 fi
 
 echo -e "  [i]  SQLITE_VERSION: $SQLITE_VERSION"
@@ -384,7 +386,7 @@ set_timestamps
 set_dates
 
 # get FTL_ID based on $TIMESTAMP_REQUESTED
-FTL_ID=$(sqlite $PIHOLE_FTL "SELECT MIN(id) FROM queries WHERE timestamp>=$TIMESTAMP_REQUESTED;")
+FTL_ID=$(sqlite "$PIHOLE_FTL" "SELECT MIN(id) FROM queries WHERE timestamp>=$TIMESTAMP_REQUESTED;")
 
 
 
@@ -392,8 +394,8 @@ FTL_ID=$(sqlite $PIHOLE_FTL "SELECT MIN(id) FROM queries WHERE timestamp>=$TIMES
 if [ "$TIMESTAMP_REQUESTED" -gt "$TIMESTAMP_LAST_QUERY" ];
     then
         echo
-        echo "  [i]  ${bold}Warning:${normal} You requested to analyze the last "${DAYS_REQUESTED}" day(s) (starting from "$DATE_REQUESTED"),"
-        echo "       but last query is from "$DATE_LAST_QUERY""
+        echo "  [i]  ${bold}Warning:${normal} You requested to analyze the last ${DAYS_REQUESTED} day(s) (starting from $DATE_REQUESTED),"
+        echo "       but last query is from $DATE_LAST_QUERY"
         echo "  [i]  Nothing to do here. Exiting "
         echo
         exit 0
@@ -410,7 +412,6 @@ fi
 
 # save old adlist_configuration
 mapfile -t adlist_conf_old_enabled < <(sqlite $GRAVITY "select id from adlist where enabled=1;")
->>>>>>> 47fc2c7 (Revert "🚨 shellcheck'ed with some suggestions from @yubiuser")
 
 echo "  Would you like to analyze your current adlist configuration or first enable all adlists (current can be restored later)?"
 echo
@@ -425,7 +426,7 @@ if [ "$AUTOMATIC_MODE" -eq 1 ];
 fi
 
 while [[ $ENABLE_ALL_ADLISTS_FOR_ANALYSIS != [12] ]]; do
-  read -p "  Please select: " ENABLE_ALL_ADLISTS_FOR_ANALYSIS
+  read -r -p "  Please select: " ENABLE_ALL_ADLISTS_FOR_ANALYSIS
 done
 echo
 echo
@@ -462,7 +463,7 @@ if [ "$ENABLE_ALL_ADLISTS_FOR_ANALYSIS" -eq 1 ]; then
         fi
 
         while [[ $RUN_GRAVITY_NOW != [12] ]]; do
-            read -p "  Please select: " RUN_GRAVITY_NOW
+            read -r -p "  Please select: " RUN_GRAVITY_NOW
         done
         if [ "$RUN_GRAVITY_NOW" -eq 1 ]; then
                 echo
@@ -473,7 +474,7 @@ if [ "$ENABLE_ALL_ADLISTS_FOR_ANALYSIS" -eq 1 ]; then
                      then
                         pihole -g
                     else
-                        docker exec $CONTAINER_ID pihole -g
+                        docker exec "$CONTAINER_ID" pihole -g
                 fi
 
                 echo
@@ -512,7 +513,7 @@ if [ "$ENABLE_ALL_ADLISTS_FOR_ANALYSIS" -eq 2 ]; then
         then
             pihole -g
         else
-           docker exec $CONTAINER_ID pihole -g
+           docker exec "$CONTAINER_ID" pihole -g
     fi
     echo
     echo "  [✓]  Gravity update finished"
@@ -734,7 +735,8 @@ echo "       As the same domains usually appears on more than one adlist the sum
 echo "       than the number of calculated blocked domains shown above"
 echo
 echo
-echo "  [i]  In total your adlists contain ${bold}"$NUM_TOTAL_UNIQUE_DOMAINS" visited (covered) unique domains${normal} - meaning those domains are contained only in a single adlist. "
+echo "  [i]  In total your adlists contain ${bold}$NUM_TOTAL_UNIQUE_DOMAINS visited (covered) unique domains${normal} - meaning those domains are contained only in a single adlist. "
+
 echo
 echo
 
@@ -755,7 +757,7 @@ if [ "$ENABLE_ALL_ADLISTS_FOR_ANALYSIS" -eq 1 ];
         fi
 
         while [[ $FURTHER_ACTION != [123] ]]; do
-          read -p "  Please select: " FURTHER_ACTION
+          read -r -p "  Please select: " FURTHER_ACTION
         done
         if [ "$FURTHER_ACTION" -eq 1 ] && [ "$AUTOMATIC_MODE" -eq 0 ];
             then
@@ -772,7 +774,7 @@ if [ "$ENABLE_ALL_ADLISTS_FOR_ANALYSIS" -eq 1 ];
         echo "  4)  Restore previous adlist configuration"
         echo
         while [[ $FURTHER_ACTION != [1234] ]]; do
-          read -p "  Please select: " FURTHER_ACTION
+          read -r -p "  Please select: " FURTHER_ACTION
         done
         if [ "$FURTHER_ACTION" -eq 1 ]; then
             echo
@@ -806,7 +808,7 @@ if [ "$FURTHER_ACTION" -eq 2 ]; then
         then
             pihole restartdns reload-lists
         else
-            docker exec $CONTAINER_ID pihole restartdns reload-lists
+            docker exec "$CONTAINER_ID" pihole restartdns reload-lists
      fi
 
     echo
@@ -843,18 +845,18 @@ if [ "$FURTHER_ACTION" -eq 3 ]; then
        sqlite $TEMP_DB "DELETE FROM gravity_dup WHERE domain IN (SELECT domain from gravity_dup where adlist_id=$adlist_id);"
     done
 
-    LEFT_DOMAINS=$(sqlite $TEMP_DB "SELECT COUNT (domain) from gravity_dup;")
+    mapfile -t LEFT_DOMAINS < <(sqlite $TEMP_DB "SELECT COUNT (domain) from gravity_dup;")
 
-    while [[ ${LEFT_DOMAINS} != 0 ]]; do
-        current_id=$(sqlite $TEMP_DB "Select adlist_id from gravity_dup group by adlist_id order by count (domain) desc, adlist_id asc limit 1;");
+    while [[ "${LEFT_DOMAINS[*]}" != [0] ]]; do
+        mapfile -t current_id < <(sqlite $TEMP_DB "Select adlist_id from gravity_dup group by adlist_id order by count (domain) desc, adlist_id asc limit 1;");
 
-        adlist_conf_minimal_enabled[${#adlist_conf_minimal_enabled[@]}]="$current_id"
-        sqlite $TEMP_DB "DELETE FROM gravity_dup WHERE domain IN (SELECT domain from gravity_dup where adlist_id=$current_id);"
-        LEFT_DOMAINS=$(sqlite $TEMP_DB "SELECT COUNT (domain) from gravity_dup;")
+        adlist_conf_minimal_enabled[${#adlist_conf_minimal_enabled[@]}]="${current_id[*]}"
+        sqlite $TEMP_DB "DELETE FROM gravity_dup WHERE domain IN (SELECT domain from gravity_dup where adlist_id=${current_id[*]});"
+        mapfile -t LEFT_DOMAINS < <(sqlite $TEMP_DB "SELECT COUNT (domain) from gravity_dup;")
     done
 
     echo
-    echo "  [i]  Enabling adlists with id" "${adlist_conf_minimal_enabled[@]}"
+    echo "  [i]  Enabling adlists with id ${adlist_conf_minimal_enabled[*]}"
 
     for adlist_id in "${adlist_conf_minimal_enabled[@]}"; do
 
@@ -870,7 +872,7 @@ if [ "$FURTHER_ACTION" -eq 3 ]; then
         then
             pihole restartdns reload-lists
         else
-            docker exec $CONTAINER_ID pihole restartdns reload-lists
+            docker exec "$CONTAINER_ID" pihole restartdns reload-lists
      fi
 
     echo
@@ -907,7 +909,7 @@ if [ "$FURTHER_ACTION" -eq 4 ]; then
         then
             pihole restartdns reload-lists
         else
-            docker exec $CONTAINER_ID pihole restartdns reload-lists
+            docker exec "$CONTAINER_ID" pihole restartdns reload-lists
      fi
     echo
     echo "  [✓]  Previous adlist configuration restored"
@@ -986,9 +988,16 @@ EOF
         mapfile -t all_domains < <(sqlite $TEMP_DB "SELECT domain FROM all_domains")
 
         for CURRENT_DOMAIN in "${all_domains[@]}"; do
-                pihole-FTL regex-test $CURRENT_DOMAIN |grep -E -o "DB ID [0-9]*"|awk '{print $3}' | while read REGEX_ID; do
-                    sqlite $TEMP_DB "INSERT INTO domain_by_regex(domain, regex_id) VALUES ('$CURRENT_DOMAIN',$REGEX_ID);"
-            done
+                if [ "$PIHOLE_DOCKER" = 0 ];
+                    then
+                        pihole-FTL regex-test $CURRENT_DOMAIN |grep -E -o "DB ID [0-9]*"|awk '{print $3}' | while read REGEX_ID; do
+                            sqlite $TEMP_DB "INSERT INTO domain_by_regex(domain, regex_id) VALUES ('$CURRENT_DOMAIN',$REGEX_ID);"
+                        done
+                    else
+                        docker exec $CONTAINER_ID pihole-FTL regex-test $CURRENT_DOMAIN |grep -E -o "DB ID [0-9]*"|awk '{print $3}' | while read REGEX_ID; do
+                            sqlite $TEMP_DB "INSERT INTO domain_by_regex(domain, regex_id) VALUES ('$CURRENT_DOMAIN',$REGEX_ID);"
+                        done
+                fi
         done
 
 # count for each RegEx_id how many domains are in domain_by_regex and store it in table regex_black
@@ -1005,7 +1014,7 @@ EOF
         mapfile -t all_exact_domains < <(sqlite $GRAVITY "SELECT domain FROM domainlist WHERE type in (0,1);")
 
         for CURRENT_DOMAIN in "${all_exact_domains[@]}"; do
-          pihole-FTL regex-test $CURRENT_DOMAIN |grep -E -o "DB ID [0-9]*"|awk '{print $3}' | while read REGEX_ID; do
+          pihole-FTL regex-test "$CURRENT_DOMAIN" |grep -E -o "DB ID [0-9]*"|awk '{print $3}' | while read -r REGEX_ID; do
               sqlite $TEMP_DB "INSERT INTO domainlist_regex(domain, regex_id) VALUES ('$CURRENT_DOMAIN',$REGEX_ID);"
             done
         done
@@ -1035,9 +1044,9 @@ EOF
         sqlite -column -header $TEMP_DB "SELECT id, enabled, domains_covered, regex FROM regex_black;"
         echo
         echo
-        echo "  [i]  Since "$DATE_FIRST_ANALYZED" you have been visiting ${bold}"$NUM_ALL_DOMAINS" different domains${normal}."
-        echo "       You have ${bold}"$NUM_REGEX" blacklist RegEx${normal} configured ("$NUM_ENABLED_REGEX" enabled)"
-        echo "       With your enabled blacklist RegEx you would have covered ${bold}"$NUM_DOMAINS_BLOCKED_BY_REGEX" different domains${normal}."
+        echo "  [i]  Since $DATE_FIRST_ANALYZED you have been visiting ${bold}$NUM_ALL_DOMAINS different domains${normal}."
+        echo "       You have ${bold}$NUM_REGEX blacklist RegEx${normal} configured ($NUM_ENABLED_REGEX enabled)"
+        echo "       With your enabled blacklist RegEx you would have covered ${bold}$NUM_DOMAINS_BLOCKED_BY_REGEX different domains${normal}."
         echo
         echo "  [i]  Please note: the internal Pi-hole RegEx test used here only checks domains against ${bold}enabled RegEx${normal}."
         echo "       Therefor, currently disabled RegEx will always have 0 domains covered."
@@ -1054,7 +1063,8 @@ EOF
             sqlite -column -header $TEMP_DB "SELECT * FROM domainlist_regex"
             echo
             echo
-            echo "       ${bold}"$NUM_DOMAINLIST_REGEX" distinct domain(s)${normal} from your domainlist are covered by your RegEx."
+            echo "       ${bold}$NUM_DOMAINLIST_REGEX distinct domain(s)${normal} from your domainlist are covered by your RegEx."
+
             echo "       Please note that this tool does not take into account if your domains and RegEx do match"
             echo "       regarding their black/whitelist status. E.g. a whitelisted domain that is covered by a blacklist RegEx"
             echo "       is counted and reported here as well."
