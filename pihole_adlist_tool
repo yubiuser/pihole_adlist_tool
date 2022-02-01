@@ -1,25 +1,5 @@
 #!/bin/bash
-# ---
-# shellcheck disable=SC2068
-# shellcheck disable=SC2145
-# shellcheck disable=SC2027
-# shellcheck disable=SC2046
-# shellcheck disable=SC2125
-# shellcheck disable=SC2128
-# shellcheck disable=SC2166
-# shellcheck disable=SC2207
-# ---
-# For more information:
-# ---
-#  https://www.shellcheck.net/wiki/SC2068 -- Double quote array expansions to ...
-#  https://www.shellcheck.net/wiki/SC2145 -- Argument mixes string and array. ...
-#  https://www.shellcheck.net/wiki/SC2027 -- The surrounding quotes actually u...
-#  https://www.shellcheck.net/wiki/SC2046 -- Quote this to prevent word splitt...
-#  https://www.shellcheck.net/wiki/SC2125 -- Brace expansions and globs are li...
-#  https://www.shellcheck.net/wiki/SC2128 -- Expanding an array without an ind...
-#  https://www.shellcheck.net/wiki/SC2166 -- Prefer [ p ] && [ q ] as [ p -a q...
-#  https://www.shellcheck.net/wiki/SC2207 -- Prefer mapfile or read -a to spli...
-# ---
+
 PIHOLE_ADLIST_TOOL_VERSION="2.6.1"
 
 # define path to pihole's databases and temporary database
@@ -161,7 +141,7 @@ set_timestamps () {
             TIMESTAMP_REQUESTED=$TIMESTAMP_FIRST_QUERY
         else
             TIMESTAMP_REQUESTED=$(date +%s)
-            TIMESTAMP_REQUESTED=$TIMESTAMP_REQUESTED-86400*${DAYS_REQUESTED}
+            TIMESTAMP_REQUESTED="$TIMESTAMP_REQUESTED-86400*${DAYS_REQUESTED}"
     fi
     TIMESTAMP_FIRST_ANALYZED=$(sqlite "$PIHOLE_FTL" "SELECT min(timestamp) FROM queries WHERE timestamp>=$TIMESTAMP_REQUESTED;")
 }
@@ -208,12 +188,12 @@ if [ "$PIHOLE_DOCKER" = 0 ];
 fi
 
 
-echo -e "  [i]  Temporary database removed\n"
+echo -e "  [✓]  Temporary database removed\n"
 }
 
 # cleanup on trap
 cleanup_on_trap () {
-echo -e "\n\n  [x]  ${bold}User-abort detected!${normal}"
+echo -e "\n\n  [✗]  ${bold}User-abort detected!${normal}"
 remove_temp_database
 exit 1
 }
@@ -380,7 +360,7 @@ fi
 
 # verify if there is an update available
 remote_version=$(fetch_remote_version)
-if [ -n "$remote_version" -a "$remote_version" != "$PIHOLE_ADLIST_TOOL_VERSION" ]; then
+if [ -n "$remote_version" ] && [ "$remote_version" != "$PIHOLE_ADLIST_TOOL_VERSION" ]; then
 	echo -e "  [i]  There is an update available: $remote_version"
 fi
 
@@ -424,14 +404,14 @@ fi
 if [ "$TIMESTAMP_REQUESTED" -lt "$TIMESTAMP_FIRST_QUERY" ];
     then
         echo
-        echo -e "  [i]  ${bold}Warning:${normal} You requested to analyze the last ""${DAYS_REQUESTED}"" days (starting from ""$DATE_REQUESTED""),"
-        echo -e "       but oldest query is from ""$DATE_FIRST_QUERY"". Using this instead\n"
+        echo -e "  [i]  ${bold}Warning:${normal} You requested to analyze the last ${DAYS_REQUESTED} days (starting from $DATE_REQUESTED),"
+        echo -e "       but oldest query is from $DATE_FIRST_QUERY. Using this instead\n"
         echo
 fi
 
 
 # save old adlist_configuration
-adlist_conf_old_enabled=($(sqlite $GRAVITY "select id from adlist where enabled=1;"))
+mapfile -t adlist_conf_old_enabled < <(sqlite $GRAVITY "select id from adlist where enabled=1;")
 
 echo "  Would you like to analyze your current adlist configuration or first enable all adlists (current can be restored later)?"
 echo
@@ -461,12 +441,12 @@ if [ "$ENABLE_ALL_ADLISTS_FOR_ANALYSIS" -eq 1 ]; then
 
     # check if a mismatch between enabled adlists and data in gravity exists, offer to run gravity
     # https://stackoverflow.com/a/28161520
-    adlist_conf_old_enabled=($(sqlite $GRAVITY "select id from adlist where enabled=1;"))
-    if [ -n "$(echo ${adlist_conf_old_enabled[@]} ${adlist_enabled_in_gravity[@]} | tr ' ' '\n' |sort |uniq -u)" ]; then
+    mapfile -t adlist_enabled_in_gravity < <(sqlite $GRAVITY "select id from adlist where enabled=1;")
+    if [ -n "$(echo "${adlist_conf_old_enabled[@]}" "${adlist_enabled_in_gravity[@]}" | tr ' ' '\n' |sort |uniq -u)" ]; then
 
         echo
         echo "  [i]  There is a mismatch between your enabled adlists and the data found in the gravity database."
-        echo "       You have ${bold}"${#adlist_conf_old_enabled[@]}"${normal} adlists enabled, but data from ${bold}"${#adlist_enabled_in_gravity[@]}"${normal} (patially different) adlists in your gravity database."
+        echo "       You have ${bold}${#adlist_conf_old_enabled[@]}${normal} adlists enabled, but data from ${bold}${#adlist_enabled_in_gravity[@]}${normal} (patially different) adlists in your gravity database."
         echo "       You're likely disabled/enabled adlist without running gravity afterwards."
         echo "       It's highly recommended to run gravity now to solve the differences, otherwise this tool will analyze the available data."
         echo
@@ -657,7 +637,7 @@ EOF
 
 # get some statistics
 # the number of domains blocked and hits is the sum of enties with status 1 or 9
-read -r NUM_DOMAINS_BLOCKED HITS_TOTAL <<<$(sqlite -separator " " "$PIHOLE_FTL" "SELECT COUNT(DISTINCT domain),count(domain) FROM queries WHERE id>=${FTL_ID} AND status in (1,9);")
+read -r NUM_DOMAINS_BLOCKED HITS_TOTAL <<<"$(sqlite -separator " " "$PIHOLE_FTL" "SELECT COUNT(DISTINCT domain),count(domain) FROM queries WHERE id>=${FTL_ID} AND status in (1,9);")"
 
 NUM_ADLISTS=$(sqlite $TEMP_DB "SELECT value FROM info where property='NUM_ADLISTS';")
 NUM_ADLISTS_ENABLED=$(sqlite $TEMP_DB "SELECT value FROM info where property='NUM_ADLISTS_ENABLED';")
@@ -670,11 +650,11 @@ NUM_GRAVITY_UNIQUE_DOMAINS=$(sqlite $GRAVITY "SELECT value FROM info WHERE prope
 
 
 echo
-echo "  [i]  You have ${bold}""$NUM_ADLISTS"" adlists${normal} configured (""$NUM_ADLISTS_ENABLED"" enabled)"
-echo "  [i]  Your gravity.db contains ${bold}""$NUM_GRAVITY_UNIQUE_DOMAINS"" unique domains${normal}"
-echo "  [i]  Since ""$DATE_FIRST_ANALYZED"" ${bold}""$NUM_DOMAINS_BLOCKED"" different domains${normal} from your adlists have been blocked ${bold}""$HITS_TOTAL"" times${normal} in total"
+echo "  [i]  You have ${bold}$NUM_ADLISTS adlists${normal} configured ($NUM_ADLISTS_ENABLED enabled)"
+echo "  [i]  Your gravity.db contains ${bold}$NUM_GRAVITY_UNIQUE_DOMAINS unique domains${normal}"
+echo "  [i]  Since $DATE_FIRST_ANALYZED ${bold}$NUM_DOMAINS_BLOCKED different domains${normal} from your adlists have been blocked ${bold}$HITS_TOTAL times${normal} in total"
 echo "       (blocked directly by gravity or during deep CNAME inspection)"
-echo "  [i]  Using you current adlist configuration ${bold}""$NUM_DOMAINS_BLOCKED_CURRENT"" domains${normal} would have been blocked ${bold}""$HITS_TOTAL_CURRENT"" times${normal}"
+echo "  [i]  Using you current adlist configuration ${bold}$NUM_DOMAINS_BLOCKED_CURRENT domains${normal} would have been blocked ${bold}$HITS_TOTAL_CURRENT times${normal}"
 
 echo
 echo
@@ -726,10 +706,10 @@ if [ "$TOP" = 0 ]; then :
     else
         echo
         echo "  [i]  ${bold}Top blocked adlist domains${normal}"
-        echo "       Those would have been the ${bold}""$TOP"" top blocked adlist domains${normal} since ""$DATE_FIRST_ANALYZED"""
+        echo "       Those would have been the ${bold}$TOP top blocked adlist domains${normal} since $DATE_FIRST_ANALYZED"
         echo "       using your current adlist configuration"
         echo
-        sqlite -column -header $TEMP_DB "SELECT domain, hits FROM blocked_domains LIMIT ""${TOP}"";"
+        sqlite -column -header $TEMP_DB "SELECT domain, hits FROM blocked_domains LIMIT ${TOP};"
         echo
         echo
         echo
@@ -813,7 +793,7 @@ if [ "$FURTHER_ACTION" -eq 2 ]; then
            sqlite $GRAVITY "UPDATE adlist SET enabled=0;"
     fi
 
-    adlist_conf_unique_enabled=($(sqlite $TEMP_DB "select id from adlist where unique_domains_covered IS NOT NULL;"))
+    mapfile -t adlist_conf_unique_enabled < <(sqlite $TEMP_DB "select id from adlist where unique_domains_covered IS NOT NULL;")
     for adlist_id in "${adlist_conf_unique_enabled[@]}"; do
 
         if [ "$PIHOLE_DOCKER" = 0 ];
@@ -857,7 +837,7 @@ if [ "$FURTHER_ACTION" -eq 3 ]; then
     # remove all domains from gravity_dup that are also contained in that adlist
     # count how many domains are still on gravity_dup
 
-    adlist_conf_minimal_enabled=($(sqlite $TEMP_DB "select id from adlist where unique_domains_covered IS NOT NULL;"))
+    mapfile -t adlist_conf_minimal_enabled < <(sqlite $TEMP_DB "select id from adlist where unique_domains_covered IS NOT NULL;")
 
     sqlite $TEMP_DB "CREATE TABLE gravity_dup AS SELECT * FROM gravity_strip"
 
@@ -865,18 +845,18 @@ if [ "$FURTHER_ACTION" -eq 3 ]; then
        sqlite $TEMP_DB "DELETE FROM gravity_dup WHERE domain IN (SELECT domain from gravity_dup where adlist_id=$adlist_id);"
     done
 
-    LEFT_DOMAINS=($(sqlite $TEMP_DB "SELECT COUNT (domain) from gravity_dup;"))
+    mapfile -t LEFT_DOMAINS < <(sqlite $TEMP_DB "SELECT COUNT (domain) from gravity_dup;")
 
-    while [[ $LEFT_DOMAINS != [0] ]]; do
-        current_id=($(sqlite $TEMP_DB "Select adlist_id from gravity_dup group by adlist_id order by count (domain) desc, adlist_id asc limit 1;"));
+    while [[ ${LEFT_DOMAINS[*]} != [0] ]]; do
+        mapfile -t current_id < <(sqlite $TEMP_DB "Select adlist_id from gravity_dup group by adlist_id order by count (domain) desc, adlist_id asc limit 1;");
 
-        adlist_conf_minimal_enabled[${#adlist_conf_minimal_enabled[@]}]="$current_id"
-        sqlite $TEMP_DB "DELETE FROM gravity_dup WHERE domain IN (SELECT domain from gravity_dup where adlist_id=$current_id);"
-        LEFT_DOMAINS=($(sqlite $TEMP_DB "SELECT COUNT (domain) from gravity_dup;"))
+        adlist_conf_minimal_enabled[${#adlist_conf_minimal_enabled[@]}]="${current_id[*]}"
+        sqlite $TEMP_DB "DELETE FROM gravity_dup WHERE domain IN (SELECT domain from gravity_dup where adlist_id=${current_id[*]});"
+        mapfile -t LEFT_DOMAINS < <(sqlite $TEMP_DB "SELECT COUNT (domain) from gravity_dup;")
     done
 
     echo
-    echo "  [i]  Enabling adlists with id ${adlist_conf_minimal_enabled[@]}"
+    echo "  [i]  Enabling adlists with id ${adlist_conf_minimal_enabled[*]}"
 
     for adlist_id in "${adlist_conf_minimal_enabled[@]}"; do
 
@@ -1005,7 +985,7 @@ EOF
 # NOTE: pihole-FTL regex-test will test also against RegEx whitelist BUT this is still much faster than to create a second loop to check against each RegEx blacklist indiviually
 
 
-        all_domains=($(sqlite $TEMP_DB "SELECT domain FROM all_domains"))
+        mapfile -t all_domains < <(sqlite $TEMP_DB "SELECT domain FROM all_domains")
 
         for CURRENT_DOMAIN in "${all_domains[@]}"; do
                 pihole-FTL regex-test "$CURRENT_DOMAIN" |grep -E -o "DB ID [0-9]*"|awk '{print $3}' | while read -r REGEX_ID; do
@@ -1024,7 +1004,7 @@ EOF
 # for each domain check if it is covered by a RegEx (using pihole-FTL regex-test)
 # if the test returns regex_ids, save them in domainlist_regex
 
-        all_exact_domains=($(sqlite $GRAVITY "SELECT domain FROM domainlist WHERE type in (0,1);"))
+        mapfile -t all_exact_domains < <(sqlite $GRAVITY "SELECT domain FROM domainlist WHERE type in (0,1);")
 
         for CURRENT_DOMAIN in "${all_exact_domains[@]}"; do
           pihole-FTL regex-test "$CURRENT_DOMAIN" |grep -E -o "DB ID [0-9]*"|awk '{print $3}' | while read -r REGEX_ID; do
