@@ -113,7 +113,7 @@ print_help() {
         -a                               Run in 'automatic mode'. No user input is required at all, assuming default choice would be
                                          to leave everything untouched.
 
-        -r                               Analyse RegEx as well. Depending on the amount of domains and RegEx this might take a while.
+        -r                               Analyse RegEx as well. Depending on the amount of domains and RegEx this might take a while. Can only be used, if Pi-hole is NOT running in a Docker Container!
 
         -v                               Display pihole_adlist_tool's version.
 
@@ -350,12 +350,22 @@ if [ "$UNIQUE" -eq 1 ];
         echo -e "  [i]  UNIQUE: Not shown"
 fi
 
+# do not RegEx when running in docker container:
+if [ "$PIHOLE_DOCKER" = 0 ]; then
+  REGEX_MODE=1
+else
+  REGEX_MODE=0
+fi
 # print if RegEx should be analysed as well
 if [ "$REGEX_MODE" -eq 1 ];
     then
         echo -e "  [i]  REGEX_MODE: Enabled"
     else
+      if [ "$PIHOLE_DOCKER" = 0 ]; then
         echo -e "  [i]  REGEX_MODE: Disabled"
+      else
+        echo -e "  [i]  REGEX_MODE: Disabled due to running Pi-hole in Docker Container"
+      fi
 fi
 
 # verify if there is an update available
@@ -984,20 +994,12 @@ EOF
 # if the test returns regex_ids, save them in domain_by_regex table
 # NOTE: pihole-FTL regex-test will test also against RegEx whitelist BUT this is still much faster than to create a second loop to check against each RegEx blacklist indiviually
 
-
         mapfile -t all_domains < <(sqlite $TEMP_DB "SELECT domain FROM all_domains")
 
         for CURRENT_DOMAIN in "${all_domains[@]}"; do
-                if [ "$PIHOLE_DOCKER" = 0 ];
-                    then
-                        pihole-FTL regex-test $CURRENT_DOMAIN |grep -E -o "DB ID [0-9]*"|awk '{print $3}' | while read REGEX_ID; do
-                            sqlite $TEMP_DB "INSERT INTO domain_by_regex(domain, regex_id) VALUES ('$CURRENT_DOMAIN',$REGEX_ID);"
-                        done
-                    else
-                        docker exec $CONTAINER_ID pihole-FTL regex-test $CURRENT_DOMAIN |grep -E -o "DB ID [0-9]*"|awk '{print $3}' | while read REGEX_ID; do
-                            sqlite $TEMP_DB "INSERT INTO domain_by_regex(domain, regex_id) VALUES ('$CURRENT_DOMAIN',$REGEX_ID);"
-                        done
-                fi
+                pihole-FTL regex-test "$CURRENT_DOMAIN" |grep -E -o "DB ID [0-9]*"|awk '{print $3}' | while read -r REGEX_ID; do
+                    sqlite $TEMP_DB "INSERT INTO domain_by_regex(domain, regex_id) VALUES ('$CURRENT_DOMAIN',$REGEX_ID);"
+            done
         done
 
 # count for each RegEx_id how many domains are in domain_by_regex and store it in table regex_black
