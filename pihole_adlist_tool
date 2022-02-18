@@ -851,7 +851,7 @@ if [ "$FURTHER_ACTION" -eq 3 ]; then
     while [[ ${LEFT_DOMAINS} != 0 ]]; do
         current_id=$(sqlite $TEMP_DB "Select adlist_id from gravity_dup group by adlist_id order by count (domain) desc, adlist_id asc limit 1;");
 
-        adlist_conf_minimal_enabled[${#adlist_conf_minimal_enabled[@]}]="${current_id[*]}"
+        adlist_conf_minimal_enabled[${#adlist_conf_minimal_enabled[@]}]="${current_id}"
         sqlite $TEMP_DB "DELETE FROM gravity_dup WHERE domain IN (SELECT domain from gravity_dup where adlist_id=${current_id[*]});"
         mapfile -t LEFT_DOMAINS < <(sqlite $TEMP_DB "SELECT COUNT (domain) from gravity_dup;")
     done
