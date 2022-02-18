@@ -784,7 +784,7 @@ if [ "$FURTHER_ACTION" -eq 2 ]; then
     echo "  [i]  Enabling adlists with covered unique domains...."
     if [ "$PIHOLE_DOCKER" = 0 ];
         then
-            sudo bash -c "PIHOLE_DOCKER=0; $SUDO_SQLITE; sqlite $GRAVITY 'UPDATE adlist SET enabled=0;'"
+            sudo bash -c "PIHOLE_DOCKER=0; 1009$SUDO_SQLITE; sqlite $GRAVITY 'UPDATE adlist SET enabled=0;'"
         else
            sqlite $GRAVITY "UPDATE adlist SET enabled=0;"
     fi
@@ -841,14 +841,14 @@ if [ "$FURTHER_ACTION" -eq 3 ]; then
        sqlite $TEMP_DB "DELETE FROM gravity_dup WHERE domain IN (SELECT domain from gravity_dup where adlist_id=$adlist_id);"
     done
 
-    LEFT_DOMAINS=(`sqlite $TEMP_DB "SELECT COUNT (domain) from gravity_dup;"`)
+    LEFT_DOMAINS=$(sqlite $TEMP_DB "SELECT COUNT (domain) from gravity_dup;")
 
-    while [[ $LEFT_DOMAINS != [0] ]]; do
+    while [[ $LEFT_DOMAINS != 0 ]]; do
         current_id=(`sqlite $TEMP_DB "Select adlist_id from gravity_dup group by adlist_id order by count (domain) desc, adlist_id asc limit 1;"`);
 
         adlist_conf_minimal_enabled[${#adlist_conf_minimal_enabled[@]}]="$current_id"
         sqlite $TEMP_DB "DELETE FROM gravity_dup WHERE domain IN (SELECT domain from gravity_dup where adlist_id=$current_id);"
-        LEFT_DOMAINS=(`sqlite $TEMP_DB "SELECT COUNT (domain) from gravity_dup;"`)
+        LEFT_DOMAINS=$(sqlite $TEMP_DB "SELECT COUNT (domain) from gravity_dup;")
     done
 
     echo
