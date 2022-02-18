@@ -441,7 +441,7 @@ if [ "$ENABLE_ALL_ADLISTS_FOR_ANALYSIS" -eq 1 ]; then
 
     # check if a mismatch between enabled adlists and data in gravity exists, offer to run gravity
     # https://stackoverflow.com/a/28161520
-    adlist_enabled_in_gravity=$(sqlite $GRAVITY "select distinct adlist_id from gravity;")
+    adlist_enabled_in_gravity=( "$(sqlite "$GRAVITY" "select distinct adlist_id from gravity;")" )
     if [ -n "$(echo "${adlist_conf_old_enabled[@]}" "${adlist_enabled_in_gravity[@]}" | tr ' ' '\n' |sort |uniq -u)" ]; then
 
         echo
@@ -848,7 +848,7 @@ if [ "$FURTHER_ACTION" -eq 3 ]; then
     declare -i LEFT_DOMAINS
     LEFT_DOMAINS=$(sqlite $TEMP_DB "SELECT COUNT (domain) from gravity_dup;")
 
-    while [[ ${LEFT_DOMAINS[*]} != [0] ]]; do
+    while [[ ${LEFT_DOMAINS} != 0 ]]; do
         current_id=$(sqlite $TEMP_DB "Select adlist_id from gravity_dup group by adlist_id order by count (domain) desc, adlist_id asc limit 1;");
 
         adlist_conf_minimal_enabled[${#adlist_conf_minimal_enabled[@]}]="${current_id[*]}"
