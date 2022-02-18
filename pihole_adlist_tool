@@ -441,7 +441,7 @@ if [ "$ENABLE_ALL_ADLISTS_FOR_ANALYSIS" -eq 1 ]; then
 
     # check if a mismatch between enabled adlists and data in gravity exists, offer to run gravity
     # https://stackoverflow.com/a/28161520
-    adlist_enabled_in_gravity=( "$(sqlite "$GRAVITY" "select distinct adlist_id from gravity;")" )
+    mapfile -t adlist_enabled_in_gravity < <(sqlite "$GRAVITY" "select distinct adlist_id from gravity;")
     if [ -n "$(echo "${adlist_conf_old_enabled[@]}" "${adlist_enabled_in_gravity[@]}" | tr ' ' '\n' |sort |uniq -u)" ]; then
 
         echo
