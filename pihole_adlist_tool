@@ -857,7 +857,7 @@ if [ "$FURTHER_ACTION" -eq 3 ]; then
     done
 
     echo
-    echo "  [✓]  Enabling adlists with id ${adlist_conf_minimal_enabled[*]}"
+    echo "  [i]  Enabling adlists with id ${adlist_conf_minimal_enabled[@]}"
 
     for adlist_id in "${adlist_conf_minimal_enabled[@]}"; do
 
