@@ -113,7 +113,8 @@ print_help() {
         -a                               Run in 'automatic mode'. No user input is required at all, assuming default choice would be
                                          to leave everything untouched.
 
-        -r                               Analyse RegEx as well. Depending on the amount of domains and RegEx this might take a while. Can only be used, if Pi-hole is NOT running in a Docker Container!
+        -r                               Analyse RegEx as well. Depending on the amount of domains and RegEx this might take a while.
+                                         Please note: Can only be used, if Pi-hole is NOT running in a Docker Container!
 
         -v                               Display pihole_adlist_tool's version.
 
@@ -188,12 +189,12 @@ if [ "$PIHOLE_DOCKER" = 0 ];
 fi
 
 
-echo -e "  [i]  Temporary database removed\n"
+echo -e "  [✓]  Temporary database removed\n"
 }
 
 # cleanup on trap
 cleanup_on_trap () {
-echo -e "\n\n  [x]  ${bold}User-abort detected!${normal}"
+echo -e "\n\n  [✗]  ${bold}User-abort detected!${normal}"
 remove_temp_database
 exit 1
 }
@@ -993,6 +994,7 @@ EOF
 # for each domain check if it is covered by a RegEx (using pihole-FTL regex-test)
 # if the test returns regex_ids, save them in domain_by_regex table
 # NOTE: pihole-FTL regex-test will test also against RegEx whitelist BUT this is still much faster than to create a second loop to check against each RegEx blacklist indiviually
+
 
         mapfile -t all_domains < <(sqlite $TEMP_DB "SELECT domain FROM all_domains")
 
