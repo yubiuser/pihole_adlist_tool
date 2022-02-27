@@ -352,10 +352,10 @@ if [ "$UNIQUE" -eq 1 ];
 fi
 
 # do not RegEx when running in docker container:
-if [ "$PIHOLE_DOCKER" = 0 ]; then
-  REGEX_MODE=1
-else
+if [ "$PIHOLE_DOCKER" = 1 ]; then
   REGEX_MODE=0
+else
+  REGEX_MODE=1
 fi
 # print if RegEx should be analysed as well
 if [ "$REGEX_MODE" -eq 1 ];
