@@ -351,22 +351,18 @@ if [ "$UNIQUE" -eq 1 ];
         echo -e "  [i]  UNIQUE: Not shown"
 fi
 
-# do not RegEx when running in docker container:
-if [ "$PIHOLE_DOCKER" = 1 ]; then
-  REGEX_MODE=0
-else
-  REGEX_MODE=1
-fi
 # print if RegEx should be analysed as well
 if [ "$REGEX_MODE" -eq 1 ];
     then
-        echo -e "  [i]  REGEX_MODE: Enabled"
+        # do not RegEx when running in docker container:
+        if [ "$PIHOLE_DOCKER" = 1 ]; then
+          REGEX_MODE=0
+          echo -e "  [i]  REGEX_MODE: Disabled due to running Pi-hole in Docker Container"
+        else
+          echo -e "  [i]  REGEX_MODE: Enabled"
+        fi
     else
-      if [ "$PIHOLE_DOCKER" = 0 ]; then
         echo -e "  [i]  REGEX_MODE: Disabled"
-      else
-        echo -e "  [i]  REGEX_MODE: Disabled due to running Pi-hole in Docker Container"
-      fi
 fi
 
 # verify if there is an update available
