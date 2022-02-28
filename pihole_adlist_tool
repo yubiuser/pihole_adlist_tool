@@ -114,6 +114,7 @@ print_help() {
                                          to leave everything untouched.
 
         -r                               Analyse RegEx as well. Depending on the amount of domains and RegEx this might take a while.
+                                         Please note: Can only be used, if Pi-hole is NOT running in a Docker Container!
 
         -v                               Display pihole_adlist_tool's version.
 
@@ -353,7 +354,13 @@ fi
 # print if RegEx should be analysed as well
 if [ "$REGEX_MODE" -eq 1 ];
     then
-        echo -e "  [i]  REGEX_MODE: Enabled"
+        # do not RegEx when running in docker container:
+        if [ "$PIHOLE_DOCKER" = 1 ]; then
+          REGEX_MODE=0
+          echo -e "  [i]  REGEX_MODE: Disabled due to running Pi-hole in Docker Container"
+        else
+          echo -e "  [i]  REGEX_MODE: Enabled"
+        fi
     else
         echo -e "  [i]  REGEX_MODE: Disabled"
 fi
