@@ -21,3 +21,6 @@ jobs:
     -
       name: Spell-Checking
       uses: codespell-project/actions-codespell@master
+      with:
+        check_filenames: true
+        check_hidden: true
