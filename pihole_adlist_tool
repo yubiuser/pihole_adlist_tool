@@ -85,13 +85,13 @@ print_version() {
 
 # fetches latest version
 fetch_remote_version() {
-	local remote_version
-	remote_version="$(
-		curl --silent https://api.github.com/repos/yubiuser/pihole_adlist_tool/releases/latest |
-		grep '"tag_name":' |
-		awk -F \" '{print $4}'
-	)"
-	# returns the latest version tag(eg: 2.4.0).
+    local remote_version
+    remote_version="$(
+        curl --silent https://api.github.com/repos/yubiuser/pihole_adlist_tool/releases/latest |
+        grep '"tag_name":' |
+        awk -F \" '{print $4}'
+    )"
+    # returns the latest version tag(eg: 2.4.0).
     echo "$remote_version"
 }
 
@@ -101,24 +101,24 @@ print_help() {
     echo "  Usage: pihole_adlist_tool [options]
 
     Options:
-        -d [Num]                         Consider the last [Num] days (Default: 30). Enter 0 for all-time analysis.
+        -d [Num]                        Consider the last [Num] days (Default: 30). Enter 0 for all-time analysis.
 
-        -t [Num]                         Show top blocked domains. [Num] defines the number to show.
+        -t [Num]                        Show top blocked domains. [Num] defines the number to show.
 
-        -s [total/covered/hits/unique]   Set sorting order to total (total domains), covered (domains covered), hits (hits covered) or
-                                         unique (covered unique domains) DESC. (Default sorting: id ASC).
+        -s [total/covered/hits/unique]  Set sorting order to total (total domains), covered (domains covered), hits (hits covered) or
+                                        unique (covered unique domains) DESC. (Default sorting: id ASC).
 
-        -u                               Show covered unique domains.
+        -u                              Show covered unique domains.
 
-        -a                               Run in 'automatic mode'. No user input is required at all, assuming default choice would be
-                                         to leave everything untouched.
+        -a                              Run in 'automatic mode'. No user input is required at all, assuming default choice would be
+                                        to leave everything untouched.
 
-        -r                               Analyse RegEx as well. Depending on the amount of domains and RegEx this might take a while.
-                                         Please note: Can only be used, if Pi-hole is NOT running in a Docker Container!
+        -r                              Analyse RegEx as well. Depending on the amount of domains and RegEx this might take a while.
+                                        Please note: Can only be used, if Pi-hole is NOT running in a Docker Container!
 
-        -v                               Display pihole_adlist_tool's version.
+        -v                              Display pihole_adlist_tool's version.
 
-        -h                               Show this help dialog.
+        -h                              Show this help dialog.
 "
 }
 
@@ -183,7 +183,7 @@ echo
 echo -e "  [i]  Removing temporary database..."
 if [ "$PIHOLE_DOCKER" = 0 ];
     then
-         rm -f $TEMP_DB
+        rm -f $TEMP_DB
     else
         docker exec "$CONTAINER_ID" rm -f $TEMP_DB
 fi
@@ -204,7 +204,7 @@ exit 1
 sqlite () {
 if [ "$PIHOLE_DOCKER" = 0 ];
     then
-         pihole-FTL sqlite3 "$@"
+        pihole-FTL sqlite3 "$@"
     else
         docker exec -i "$CONTAINER_ID" pihole-FTL sqlite3 "$@"
 fi
@@ -219,20 +219,20 @@ trap cleanup_on_trap INT
 
 # getopts flags and assing arguments to variables
 while getopts 'd:t:s:uarvh' flag; do
-  case "${flag}" in
-    d) DAYS_REQUESTED="${OPTARG}" ;;
-    t) TOP="${OPTARG}" ;;
-    s) SORT="${OPTARG}" ;;
-    u) UNIQUE=1 ;;
-    a) AUTOMATIC_MODE=1 ;;
-    r) REGEX_MODE=1 ;;
-    v) print_version
-        exit 0 ;;
-    h) print_help
-        exit 0 ;;
-    *) print_help
-        exit 1 ;;
-  esac
+    case "${flag}" in
+        d) DAYS_REQUESTED="${OPTARG}" ;;
+        t) TOP="${OPTARG}" ;;
+        s) SORT="${OPTARG}" ;;
+        u) UNIQUE=1 ;;
+        a) AUTOMATIC_MODE=1 ;;
+        r) REGEX_MODE=1 ;;
+        v) print_version
+            exit 0 ;;
+        h) print_help
+            exit 0 ;;
+        *) print_help
+            exit 1 ;;
+    esac
 done
 
 ### warm-up ######
@@ -356,10 +356,10 @@ if [ "$REGEX_MODE" -eq 1 ];
     then
         # do not RegEx when running in docker container:
         if [ "$PIHOLE_DOCKER" = 1 ]; then
-          REGEX_MODE=0
-          echo -e "  [i]  REGEX_MODE: Disabled due to running Pi-hole in Docker Container"
+            REGEX_MODE=0
+            echo -e "  [i]  REGEX_MODE: Disabled due to running Pi-hole in Docker Container"
         else
-          echo -e "  [i]  REGEX_MODE: Enabled"
+            echo -e "  [i]  REGEX_MODE: Enabled"
         fi
     else
         echo -e "  [i]  REGEX_MODE: Disabled"
@@ -368,7 +368,7 @@ fi
 # verify if there is an update available
 remote_version=$(fetch_remote_version)
 if [ -n "$remote_version" ] && [ "$remote_version" != "$PIHOLE_ADLIST_TOOL_VERSION" ]; then
-	echo -e "  [i]  There is an update available: $remote_version"
+    echo -e "  [i]  There is an update available: $remote_version"
 fi
 
 echo -e "\n   ++++++++++++++++++++++\n\n"
@@ -428,12 +428,12 @@ echo
 
 if [ "$AUTOMATIC_MODE" -eq 1 ];
     then
-     ENABLE_ALL_ADLISTS_FOR_ANALYSIS=1
-     echo "  [i]  Running in automatic mode, keeping current adlist configuration."
+        ENABLE_ALL_ADLISTS_FOR_ANALYSIS=1
+        echo "  [i]  Running in automatic mode, keeping current adlist configuration."
 fi
 
 while [[ $ENABLE_ALL_ADLISTS_FOR_ANALYSIS != [12] ]]; do
-  read -r -p "  Please select: " ENABLE_ALL_ADLISTS_FOR_ANALYSIS
+    read -r -p "  Please select: " ENABLE_ALL_ADLISTS_FOR_ANALYSIS
 done
 echo
 echo
@@ -441,7 +441,7 @@ echo
 if [ "$ENABLE_ALL_ADLISTS_FOR_ANALYSIS" -eq 1 ]; then
     if [ "$AUTOMATIC_MODE" -eq 0 ];
         then
-          echo "  [i]  Keeping current adlist configuration"
+            echo "  [i]  Keeping current adlist configuration"
     fi
 
 
@@ -464,7 +464,7 @@ if [ "$ENABLE_ALL_ADLISTS_FOR_ANALYSIS" -eq 1 ]; then
         echo "  2)  No"
         echo
         if [ "$AUTOMATIC_MODE" -eq 1 ];
-             then
+            then
                 RUN_GRAVITY_NOW=2
                 echo "  [i]  Running in automatic mode, not running gravity."
         fi
@@ -478,7 +478,7 @@ if [ "$ENABLE_ALL_ADLISTS_FOR_ANALYSIS" -eq 1 ]; then
                 echo "  [i]  Starting gravity"
                 echo
                 if [ "$PIHOLE_DOCKER" = 0 ];
-                     then
+                    then
                         pihole -g
                     else
                         docker exec "$CONTAINER_ID" pihole -g
@@ -509,7 +509,7 @@ if [ "$ENABLE_ALL_ADLISTS_FOR_ANALYSIS" -eq 2 ]; then
         then
             sudo bash -c "PIHOLE_DOCKER=0; $SUDO_SQLITE; sqlite $GRAVITY 'UPDATE adlist SET enabled=1;'"
         else
-           sqlite $GRAVITY "UPDATE adlist SET enabled=1;"
+            sqlite $GRAVITY "UPDATE adlist SET enabled=1;"
     fi
 
     echo
@@ -520,7 +520,7 @@ if [ "$ENABLE_ALL_ADLISTS_FOR_ANALYSIS" -eq 2 ]; then
         then
             pihole -g
         else
-           docker exec "$CONTAINER_ID" pihole -g
+            docker exec "$CONTAINER_ID" pihole -g
     fi
     echo
     echo "  [✓]  Gravity update finished"
@@ -764,7 +764,7 @@ if [ "$ENABLE_ALL_ADLISTS_FOR_ANALYSIS" -eq 1 ];
         fi
 
         while [[ $FURTHER_ACTION != [123] ]]; do
-          read -r -p "  Please select: " FURTHER_ACTION
+            read -r -p "  Please select: " FURTHER_ACTION
         done
         if [ "$FURTHER_ACTION" -eq 1 ] && [ "$AUTOMATIC_MODE" -eq 0 ];
             then
@@ -781,7 +781,7 @@ if [ "$ENABLE_ALL_ADLISTS_FOR_ANALYSIS" -eq 1 ];
         echo "  4)  Restore previous adlist configuration"
         echo
         while [[ $FURTHER_ACTION != [1234] ]]; do
-          read -r -p "  Please select: " FURTHER_ACTION
+            read -r -p "  Please select: " FURTHER_ACTION
         done
         if [ "$FURTHER_ACTION" -eq 1 ]; then
             echo
@@ -797,7 +797,7 @@ if [ "$FURTHER_ACTION" -eq 2 ]; then
         then
             sudo bash -c "PIHOLE_DOCKER=0; $SUDO_SQLITE; sqlite $GRAVITY 'UPDATE adlist SET enabled=0;'"
         else
-           sqlite $GRAVITY "UPDATE adlist SET enabled=0;"
+            sqlite $GRAVITY "UPDATE adlist SET enabled=0;"
     fi
 
     mapfile -t adlist_conf_unique_enabled < <(sqlite $TEMP_DB "select id from adlist where unique_domains_covered IS NOT NULL;")
@@ -816,7 +816,7 @@ if [ "$FURTHER_ACTION" -eq 2 ]; then
             pihole restartdns reload-lists
         else
             docker exec "$CONTAINER_ID" pihole restartdns reload-lists
-     fi
+    fi
 
     echo
     echo "  [✓]  Adlists with covered unique domains enabled"
@@ -831,7 +831,7 @@ if [ "$FURTHER_ACTION" -eq 3 ]; then
         then
             sudo bash -c "PIHOLE_DOCKER=0; $SUDO_SQLITE; sqlite $GRAVITY 'UPDATE adlist SET enabled=0;'"
         else
-           sqlite $GRAVITY "UPDATE adlist SET enabled=0;"
+            sqlite $GRAVITY "UPDATE adlist SET enabled=0;"
     fi
 
 
@@ -849,7 +849,7 @@ if [ "$FURTHER_ACTION" -eq 3 ]; then
     sqlite $TEMP_DB "CREATE TABLE gravity_dup AS SELECT * FROM gravity_strip"
 
     for adlist_id in "${adlist_conf_minimal_enabled[@]}"; do
-       sqlite $TEMP_DB "DELETE FROM gravity_dup WHERE domain IN (SELECT domain from gravity_dup where adlist_id=$adlist_id);"
+        sqlite $TEMP_DB "DELETE FROM gravity_dup WHERE domain IN (SELECT domain from gravity_dup where adlist_id=$adlist_id);"
     done
 
     LEFT_DOMAINS=$(sqlite $TEMP_DB "SELECT COUNT (domain) from gravity_dup;")
@@ -880,7 +880,7 @@ if [ "$FURTHER_ACTION" -eq 3 ]; then
             pihole restartdns reload-lists
         else
             docker exec "$CONTAINER_ID" pihole restartdns reload-lists
-     fi
+    fi
 
     echo
     echo "  [✓]  Minimal number of adlists that cover all domains (that would have been blocked) enabled"
@@ -917,7 +917,7 @@ if [ "$FURTHER_ACTION" -eq 4 ]; then
             pihole restartdns reload-lists
         else
             docker exec "$CONTAINER_ID" pihole restartdns reload-lists
-     fi
+    fi
     echo
     echo "  [✓]  Previous adlist configuration restored"
     echo
@@ -1014,8 +1014,8 @@ EOF
         mapfile -t all_exact_domains < <(sqlite $GRAVITY "SELECT domain FROM domainlist WHERE type in (0,1);")
 
         for CURRENT_DOMAIN in "${all_exact_domains[@]}"; do
-          pihole-FTL regex-test "$CURRENT_DOMAIN" |grep -E -o "DB ID [0-9]*"|awk '{print $3}' | while read -r REGEX_ID; do
-              sqlite $TEMP_DB "INSERT INTO domainlist_regex(domain, regex_id) VALUES ('$CURRENT_DOMAIN',$REGEX_ID);"
+            pihole-FTL regex-test "$CURRENT_DOMAIN" |grep -E -o "DB ID [0-9]*"|awk '{print $3}' | while read -r REGEX_ID; do
+                sqlite $TEMP_DB "INSERT INTO domainlist_regex(domain, regex_id) VALUES ('$CURRENT_DOMAIN',$REGEX_ID);"
             done
         done
 
