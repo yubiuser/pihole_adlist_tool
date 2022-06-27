@@ -1,0 +1,26 @@
+name: Codespell
+on:
+  push:
+    branches:
+      # Run workflow on every push
+      - '**'        # matches every branch
+
+  pull_request:
+    branches:
+      # Run workflow on every push
+      - '**'        # matches every branch
+
+jobs:
+  spell-check:
+    if: github.event.pull_request.draft == false
+    runs-on: ubuntu-latest
+    steps:
+    -
+      name: Checkout repository
+      uses: actions/checkout@v3
+    -
+      name: Spell-Checking
+      uses: codespell-project/actions-codespell@master
+      with:
+        check_filenames: true
+        check_hidden: true

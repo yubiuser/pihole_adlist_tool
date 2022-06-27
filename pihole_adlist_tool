@@ -1,6 +1,6 @@
 #!/bin/bash
 
-PIHOLE_ADLIST_TOOL_VERSION="2.6.1"
+PIHOLE_ADLIST_TOOL_VERSION="2.6.2"
 
 # define path to pihole's databases and temporary database
 TEMP_DB="/tmp/temp.db"
@@ -68,7 +68,7 @@ declare -i ENABLE_ALL_ADLISTS_FOR_ANALYSIS
 declare -i RUN_GRAVITY_NOW
 declare -i FURTHER_ACTION
 
-#for text formating
+#for text formatting
 bold=$(tput bold)
 normal=$(tput sgr0)
 
@@ -158,7 +158,7 @@ set_dates () {
 }
 
 # calculates how many domains from gravity_strip are contained in all enabled adlists in gravity
-# this is useful in case users select to enable all adlist initally, but return to their previous adlist configuration
+# this is useful in case users select to enable all adlist initially, but return to their previous adlist configuration
 # which might not contain all domains that could have been blocked or only enable adlists with unique covered domains
 
 domains_blocked_future () {
@@ -199,8 +199,8 @@ remove_temp_database
 exit 1
 }
 
-# use pihole-FTL's build-in sql shell
-# putting this in a function allows to easily change to another sqlite engine one day if necssary
+# use pihole-FTL's built-in sql shell
+# putting this in a function allows to easily change to another sqlite engine one day if necessary
 sqlite () {
 if [ "$PIHOLE_DOCKER" = 0 ];
     then
@@ -217,7 +217,7 @@ SUDO_SQLITE=$(declare -f sqlite)
 
 trap cleanup_on_trap INT
 
-# getopts flags and assing arguments to variables
+# getopts flags and assign arguments to variables
 while getopts 'd:t:s:uarvh' flag; do
     case "${flag}" in
         d) DAYS_REQUESTED="${OPTARG}" ;;
@@ -547,7 +547,7 @@ echo "  [i]  This might take some time - please be patient."
 # table gravity_strip is a stripped version of the gravity database's gravity table which contains only domains that have been visited
 # table blacklist_gravity contains all domains that are on the personal blacklist and also in gravity_strip
 # table unique_domains contains all domains from gravity_strip that are found just on one adlist
-# table cname contains all domains that have been blocked during deep CNAME inspection (not the requested domain, but the acutal blocked domain)
+# table cname contains all domains that have been blocked during deep CNAME inspection (not the requested domain, but the actual blocked domain)
 # table blacklist_cname contains all domains that are on the personal blacklist and also in cname
 # table info contains various pre-calculated information
 
@@ -580,8 +580,8 @@ EOF
 # 6.) table cname selects all domains from pihole-ftl.db (additional_info) that that are also found in gravity.db and have status=9.
 #   (status=9 == "Domain contained in gravity database & Blocked during deep CNAME inspection". This is just being cautious, because "additional_info" might contain other domains in the future for purposes different than CNAME inspection)
 # 7.) add blocked domains (found by deep CNAME inspection) to gravity_strip
-# 8.) add domain and hits found during cname analysis to blocked_domains; if domain is already on the list, onyl update the hit counter
-#    (this is the critical step - "upsert" function was introduced frist in sqlite with 3.24)
+# 8.) add domain and hits found during cname analysis to blocked_domains; if domain is already on the list, only update the hit counter
+#    (this is the critical step - "upsert" function was introduced first in sqlite with 3.24)
 # 9.) select all domains that are on the blacklist and also found during deep CNAME inspection
 # 10.) update blacklist_cname with the number of hits for each domain
 
@@ -616,7 +616,7 @@ sqlite -cmd ".timeout 5000" $TEMP_DB << EOF
 EOF
 
 
-# finsih database work in $TEMP_DB
+# finish database work in $TEMP_DB
 #
 #
 # 1.) select all domains that are only once in gravity_strip (covered unique domains)
@@ -950,7 +950,7 @@ if [ "$REGEX_MODE" -eq 1 ];
 
 # table all_regex contains all RegEx from gravity.db
 # table regex_black contains all blacklisted RegEx from gravity.db
-# table all_domains contains all domains (in the selected time periode) from the pihole-FTL.db (including domains from CNAME inspection)
+# table all_domains contains all domains (in the selected time period) from the pihole-FTL.db (including domains from CNAME inspection)
 # table domain_by_regex contains all domains and the blocking RegEx
 # table domainlist_regex contains all exact domains that are on the personal black/whitelist and coverd by RegEx as well
 
@@ -986,10 +986,10 @@ EOF
 
 # Regex vs. GRAVITY
 # copy all domains from table all_domais in array all_domains
-# interate over each domain in all_domains
+# iterate over each domain in all_domains
 # for each domain check if it is covered by a RegEx (using pihole-FTL regex-test)
 # if the test returns regex_ids, save them in domain_by_regex table
-# NOTE: pihole-FTL regex-test will test also against RegEx whitelist BUT this is still much faster than to create a second loop to check against each RegEx blacklist indiviually
+# NOTE: pihole-FTL regex-test will test also against RegEx whitelist BUT this is still much faster than to create a second loop to check against each RegEx blacklist individually
 
 
         mapfile -t all_domains < <(sqlite $TEMP_DB "SELECT domain FROM all_domains")
@@ -1007,7 +1007,7 @@ EOF
 
 # Regex vs domainlist
 # copy all exact black/whitelisted domains from gravity's domainlist (type=1 or type=0)
-# interate over each domain
+# iterate over each domain
 # for each domain check if it is covered by a RegEx (using pihole-FTL regex-test)
 # if the test returns regex_ids, save them in domainlist_regex
 
@@ -1049,7 +1049,7 @@ EOF
         echo "       With your enabled blacklist RegEx you would have covered ${bold}$NUM_DOMAINS_BLOCKED_BY_REGEX different domains${normal}."
         echo
         echo "  [i]  Please note: the internal Pi-hole RegEx test used here only checks domains against ${bold}enabled RegEx${normal}."
-        echo "       Therefor, currently disabled RegEx will always have 0 domains covered."
+        echo "       Therefore, currently disabled RegEx will always have 0 domains covered."
 
 
         if [ "$NUM_DOMAINLIST_REGEX" -ne 0 ]; then
