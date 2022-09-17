@@ -71,6 +71,7 @@ options:
     -u                               Show covered unique domains
     -a                               Run in 'automatic mode'. No user input is required at all, assuming default choice would be to leave everything untouched.
 le_adlist_tool's version.
+    -r                               Include regex blacklist domains in analysis
     -h                               Show this help dialog
 
 ```
