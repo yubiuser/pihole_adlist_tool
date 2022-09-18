@@ -1,6 +1,6 @@
 #!/bin/bash
 
-PIHOLE_ADLIST_TOOL_VERSION="2.6.2"
+PIHOLE_ADLIST_TOOL_VERSION="2.6.3"
 
 # define path to pihole's databases and temporary database
 TEMP_DB="/tmp/temp.db"
@@ -952,7 +952,7 @@ if [ "$REGEX_MODE" -eq 1 ];
 # table regex_black contains all blacklisted RegEx from gravity.db
 # table all_domains contains all domains (in the selected time period) from the pihole-FTL.db (including domains from CNAME inspection)
 # table domain_by_regex contains all domains and the blocking RegEx
-# table domainlist_regex contains all exact domains that are on the personal black/whitelist and coverd by RegEx as well
+# table domainlist_regex contains all exact domains that are on the personal black/whitelist and covered by RegEx as well
 
 # 1.) copy blacklisted RegEx info from gravity database
 # 2.) copy distinct domains from pihole-FTL.db
@@ -1025,7 +1025,7 @@ EOF
         # the number of different domains that would have been blocked by RegEx with the current RegEx configuration
         sqlite $TEMP_DB "INSERT INTO info (property, value) Select 'NUM_DOMAINS_BLOCKED_BY_REGEX', COUNT (distinct domain) FROM domain_by_regex JOIN regex_black ON regex_id=id where enabled=1 ;"
 
-        # the number of domainlist domains coverd by RegEx
+        # the number of domainlist domains covered by RegEx
         sqlite $TEMP_DB "INSERT INTO info (property, value) Select 'DOMAINLIST_REGEX', COUNT(distinct domain) FROM domainlist_regex;"
 
         NUM_ALL_DOMAINS=$(sqlite $TEMP_DB "SELECT value FROM info where property='NUM_ALL_DOMAINS';")
@@ -1056,7 +1056,7 @@ EOF
             echo
             echo
             echo "  [i]  ${bold}You hit a special case${normal}"
-            echo "       Your personal domainlist (black- and whitelist) contains at least one domain that is also coverd by at least"
+            echo "       Your personal domainlist (black- and whitelist) contains at least one domain that is also covered by at least"
             echo "       one of your RegEx (black- and whitelist)"
             echo
             echo
