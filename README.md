@@ -17,7 +17,7 @@ The final output is a table of all your adlists with the corresponding number of
 - adlist table
     id, status, total domains on adlist, covered domains, hits, unique covered domains, address
 - the sum of unique covered domains
-- optional: list of unique coverd domains with adlist_id, address
+- optional: list of unique covered domains with adlist_id, address
 - optional: analyse regex blacklist (will be disabled when running Pi-hole in Docker Container!)
 
 As domains usually appear on more then one adlist I introduce the concept of ***unique covered domains***. Those are domains that have been visited, would have been blocked and appear on just one adlist. This might help you to value your adlists not just by how many domains are covered but also what would happen if you disable this adlist.
