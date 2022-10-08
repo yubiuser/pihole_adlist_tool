@@ -64,15 +64,22 @@ On my [NanoPi NeoPlus2](http://wiki.friendlyarm.com/wiki/index.php/NanoPi_NEO_Pl
 ```bash
 pihole_adlist_tool [options]
 
-options:
-    -d [Num]                         Consider the last [Num] days (Default: 30). Enter 0 for all-time analysis.
-    -t [Num]                         Show top blocked domains. [Num] defines the number to show.
-    -s [total/domains/hits/unique]   Set sorting order to total domains, domains covered, hits covered or unique covered domains DESC. (Default sorting: id ASC)
-    -u                               Show covered unique domains
-    -a                               Run in 'automatic mode'. No user input is required at all, assuming default choice would be to leave everything untouched.
-le_adlist_tool's version.
-    -h                               Show this help dialog
+Options:
+  -d [Num]                        Consider the last [Num] days (Default: 30). Enter 0 for all-time analysis.
 
+  -t [Num]                        Show top blocked domains. [Num] defines the number to show.
+
+  -s [total/covered/hits/unique]  Set sorting order to total (total domains) covered (domains covered), hits (hits covered) or unique (covered unique domains) DESC. (Default sorting: id ASC).
+
+  -u                              Show covered unique domains.
+
+  -a                              Run in 'automatic mode'. No user input is required at all, assuming default choice would be to leave everything untouched.
+
+  -r                              Analyse RegEx as well. Depending on the amount of domains and RegEx this might take a while. Please note: Can only be used, if Pi-hole is NOT running in a Docker Container!
+
+  -v                              Display pihole_adlist_tool's version.
+
+  -h                              Show this help dialog.
 ```
 
 ---
