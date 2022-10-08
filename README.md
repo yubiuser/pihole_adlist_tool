@@ -17,7 +17,7 @@ The final output is a table of all your adlists with the corresponding number of
 - adlist table
     id, status, total domains on adlist, covered domains, hits, unique covered domains, address
 - the sum of unique covered domains
-- optional: list of unique coverd domains with adlist_id, address
+- optional: list of unique covered domains with adlist_id, address
 - optional: analyse regex blacklist (will be disabled when running Pi-hole in Docker Container!)
 
 As domains usually appear on more then one adlist I introduce the concept of ***unique covered domains***. Those are domains that have been visited, would have been blocked and appear on just one adlist. This might help you to value your adlists not just by how many domains are covered but also what would happen if you disable this adlist.
@@ -64,15 +64,22 @@ On my [NanoPi NeoPlus2](http://wiki.friendlyarm.com/wiki/index.php/NanoPi_NEO_Pl
 ```bash
 pihole_adlist_tool [options]
 
-options:
-    -d [Num]                         Consider the last [Num] days (Default: 30). Enter 0 for all-time analysis.
-    -t [Num]                         Show top blocked domains. [Num] defines the number to show.
-    -s [total/domains/hits/unique]   Set sorting order to total domains, domains covered, hits covered or unique covered domains DESC. (Default sorting: id ASC)
-    -u                               Show covered unique domains
-    -a                               Run in 'automatic mode'. No user input is required at all, assuming default choice would be to leave everything untouched.
-le_adlist_tool's version.
-    -h                               Show this help dialog
+Options:
+  -d [Num]                        Consider the last [Num] days (Default: 30). Enter 0 for all-time analysis.
 
+  -t [Num]                        Show top blocked domains. [Num] defines the number to show.
+
+  -s [total/covered/hits/unique]  Set sorting order to total (total domains) covered (domains covered), hits (hits covered) or unique (covered unique domains) DESC. (Default sorting: id ASC).
+
+  -u                              Show covered unique domains.
+
+  -a                              Run in 'automatic mode'. No user input is required at all, assuming default choice would be to leave everything untouched.
+
+  -r                              Analyse RegEx as well. Depending on the amount of domains and RegEx this might take a while. Please note: Can only be used, if Pi-hole is NOT running in a Docker Container!
+
+  -v                              Display pihole_adlist_tool's version.
+
+  -h                              Show this help dialog.
 ```
 
 ---
