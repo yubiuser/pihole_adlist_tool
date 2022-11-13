@@ -453,7 +453,7 @@ if [ "$ENABLE_ALL_ADLISTS_FOR_ANALYSIS" -eq 1 ]; then
 
         echo
         echo "  [i]  There is a mismatch between your enabled adlists and the data found in the gravity database."
-        echo "       You have ${bold}${#adlist_conf_old_enabled[@]}${normal} adlists enabled, but data from ${bold}${#adlist_enabled_in_gravity[@]}${normal} (patially different) adlists in your gravity database."
+        echo "       You have ${bold}${#adlist_conf_old_enabled[@]}${normal} adlists enabled, but data from ${bold}${#adlist_enabled_in_gravity[@]}${normal} (partially different) adlists in your gravity database."
         echo "       You're likely disabled/enabled adlist without running gravity afterwards."
         echo "       It's highly recommended to run gravity now to solve the differences, otherwise this tool will analyze the available data."
         echo
