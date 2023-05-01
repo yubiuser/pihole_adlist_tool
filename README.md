@@ -59,7 +59,12 @@ On my [NanoPi NeoPlus2](http://wiki.friendlyarm.com/wiki/index.php/NanoPi_NEO_Pl
 
 ---
 
-## Usage
+## Installation
+
+Download the tool, either via `git clone` or [link](https://raw.githubusercontent.com/yubiuser/pihole_adlist_tool/master/pihole_adlist_tool).
+Make the script executable with `chmod +x ./pihole_adlist_tool` and run it with `./pihole_adlist_tool`
+
+## Options
 
 ```bash
 pihole_adlist_tool [options]
