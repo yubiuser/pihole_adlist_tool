@@ -661,7 +661,7 @@ echo "  [i]  You have ${bold}$NUM_ADLISTS adlists${normal} configured ($NUM_ADLI
 echo "  [i]  Your gravity.db contains ${bold}$NUM_GRAVITY_UNIQUE_DOMAINS unique domains${normal}"
 echo "  [i]  Since $DATE_FIRST_ANALYZED ${bold}$NUM_DOMAINS_BLOCKED different domains${normal} from your adlists have been blocked ${bold}$HITS_TOTAL times${normal} in total"
 echo "       (blocked directly by gravity or during deep CNAME inspection)"
-echo "  [i]  Using you current adlist configuration ${bold}$NUM_DOMAINS_BLOCKED_CURRENT domains${normal} would have been blocked ${bold}$HITS_TOTAL_CURRENT times${normal}"
+echo "  [i]  Using your current adlist configuration ${bold}$NUM_DOMAINS_BLOCKED_CURRENT domains${normal} would have been blocked ${bold}$HITS_TOTAL_CURRENT times${normal}"
 
 echo
 echo
