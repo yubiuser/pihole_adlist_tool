@@ -807,7 +807,7 @@ if [ "$FURTHER_ACTION" -eq 2 ]; then
             then
                 sudo bash -c "PIHOLE_DOCKER=0; $SUDO_SQLITE; sqlite $GRAVITY 'UPDATE adlist SET enabled=1 where id=$adlist_id;'"
             else
-                sqlite $GRAVITY "UPDATE adlist SET enabled=1 where id=$adlist_id;'"
+                sqlite $GRAVITY "UPDATE adlist SET enabled=1 where id=$adlist_id;"
         fi
     done
 
