@@ -1,3 +1,16 @@
+## Maintenance mode
+
+This repo is in maintenance mode: It's unlikely that I will add new features myself but are willing to accept external pull requests. There are several reasons for this decisions:
+
+- When I released the first version 4 years ago, Pi-hole' blocking capabilities were more limited than today. It was way more simple to deduct from the `gravity` database which queries would have been blocked than it is today. Pi-hole's regex filtering could only be taken into account by parsing the output of the `pihole-FTL` regex engine - which is already kind of a hack. Adding all the code to apply the ABP-style filtering to the queries is out-of-scope (maybe even impossible in a shell script). So the gap between the filtering by Pi-hole and what's reported by the tool gets wider.
+- The tool is quite slow and I'm not sure if this could be improved within the limits of a shell script.
+- There is a lack of motivation and time to address the above issues.
+
+I'll added a MIT licence so anyone who would like to continue to improve or use the tool should be able to do so.
+If I would start fresh, I'll probably would use another language (maybe C, maybe GO) which would allow to implement/reuse `FTL`'s regex engine allowing to parse the regex domains and the ABP-style entries.
+
+
+
 # Pihole Adlist Tool
 
 This script tries to provide you with a bunch of information that enables you to decide which adlists you need based on your browsing behavior. It does that by matching your browsing history (FTL's querylog) with your current adlist configuration (gravity database) generating a list of domains that you have visited in the past and which would have been blocked if your current adlist configuration would have been in place back then.
