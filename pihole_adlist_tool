@@ -135,8 +135,10 @@ timestamp2date () {
 
 set_timestamps () {
 
-    TIMESTAMP_FIRST_QUERY=$(sqlite "$PIHOLE_FTL" "SELECT MIN(timestamp) FROM queries;")
-    TIMESTAMP_LAST_QUERY=$(sqlite "$PIHOLE_FTL" "SELECT MAX(timestamp) FROM queries;")
+
+    TIMESTAMP_FIRST_QUERY=$(sqlite "$PIHOLE_FTL" "SELECT CAST(MIN(timestamp) AS INTEGER) FROM queries;")
+    TIMESTAMP_LAST_QUERY=$(sqlite "$PIHOLE_FTL" "SELECT CAST(MAX(timestamp) AS INTEGR) FROM queries;")
+
     if [ "$DAYS_REQUESTED" = 0 ];
         then
             TIMESTAMP_REQUESTED=$TIMESTAMP_FIRST_QUERY
@@ -144,7 +146,7 @@ set_timestamps () {
             TIMESTAMP_REQUESTED=$(date +%s)
             TIMESTAMP_REQUESTED="$TIMESTAMP_REQUESTED-86400*${DAYS_REQUESTED}"
     fi
-    TIMESTAMP_FIRST_ANALYZED=$(sqlite "$PIHOLE_FTL" "SELECT min(timestamp) FROM queries WHERE timestamp>=$TIMESTAMP_REQUESTED;")
+    TIMESTAMP_FIRST_ANALYZED=$(sqlite "$PIHOLE_FTL" "SELECT CAST(min(timestamp) AS INTEGER) FROM queries WHERE timestamp>=$TIMESTAMP_REQUESTED;")
 }
 
 # converts dates
