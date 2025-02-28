@@ -1,6 +1,6 @@
 #!/bin/bash
 
-PIHOLE_ADLIST_TOOL_VERSION="2.6.5"
+PIHOLE_ADLIST_TOOL_VERSION="2.6.6"
 
 # define path to pihole's databases and temporary database
 TEMP_DB="/tmp/temp.db"
